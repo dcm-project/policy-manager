@@ -35,7 +35,7 @@ tags:
 paths:
   /health:
     get:
-      operationId: GetHealth
+      operationId: getHealth
       summary: Health check
       description: Health check for DCM Policy Manager API
       responses:
