@@ -58,6 +58,15 @@ type Error struct {
 // error code.
 type ErrorType string
 
+// Health defines model for Health.
+type Health struct {
+	// Path Canonical path of the resource
+	Path *string `json:"path,omitempty"`
+
+	// Status Health status
+	Status string `json:"status"`
+}
+
 // ListPoliciesResponse Response message for listing policies.
 //
 // Implements AEP-132 List standard method requirements.
