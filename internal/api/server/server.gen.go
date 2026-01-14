@@ -25,7 +25,9 @@ const (
 	INVALIDARGUMENT    ErrorType = "INVALID_ARGUMENT"
 	NOTFOUND           ErrorType = "NOT_FOUND"
 	OUTOFRANGE         ErrorType = "OUT_OF_RANGE"
+	PERMISSIONDENIED   ErrorType = "PERMISSION_DENIED"
 	RESOURCEEXHAUSTED  ErrorType = "RESOURCE_EXHAUSTED"
+	UNAUTHENTICATED    ErrorType = "UNAUTHENTICATED"
 	UNAVAILABLE        ErrorType = "UNAVAILABLE"
 	UNIMPLEMENTED      ErrorType = "UNIMPLEMENTED"
 )
@@ -186,6 +188,11 @@ type AlreadyExists = Error
 // Provides structured error information for API failures.
 type BadRequest = Error
 
+// Forbidden Error response following RFC 7807 Problem Details and AEP-193.
+//
+// Provides structured error information for API failures.
+type Forbidden = Error
+
 // InternalServerError Error response following RFC 7807 Problem Details and AEP-193.
 //
 // Provides structured error information for API failures.
@@ -195,6 +202,11 @@ type InternalServerError = Error
 //
 // Provides structured error information for API failures.
 type NotFound = Error
+
+// Unauthorized Error response following RFC 7807 Problem Details and AEP-193.
+//
+// Provides structured error information for API failures.
+type Unauthorized = Error
 
 // ValidationError Error response following RFC 7807 Problem Details and AEP-193.
 //
@@ -607,9 +619,13 @@ type AlreadyExistsJSONResponse Error
 
 type BadRequestJSONResponse Error
 
+type ForbiddenJSONResponse Error
+
 type InternalServerErrorJSONResponse Error
 
 type NotFoundJSONResponse Error
+
+type UnauthorizedJSONResponse Error
 
 type ValidationErrorJSONResponse Error
 
@@ -635,6 +651,24 @@ type ListPolicies400JSONResponse struct{ BadRequestJSONResponse }
 func (response ListPolicies400JSONResponse) VisitListPoliciesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPolicies401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListPolicies401JSONResponse) VisitListPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListPolicies403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListPolicies403JSONResponse) VisitListPoliciesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -685,6 +719,24 @@ func (response CreatePolicy400JSONResponse) VisitCreatePolicyResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type CreatePolicy401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreatePolicy401JSONResponse) VisitCreatePolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreatePolicy403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreatePolicy403JSONResponse) VisitCreatePolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreatePolicy409JSONResponse struct{ AlreadyExistsJSONResponse }
 
 func (response CreatePolicy409JSONResponse) VisitCreatePolicyResponse(w http.ResponseWriter) error {
@@ -730,6 +782,24 @@ func (response DeletePolicy204Response) VisitDeletePolicyResponse(w http.Respons
 	return nil
 }
 
+type DeletePolicy401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeletePolicy401JSONResponse) VisitDeletePolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePolicy403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeletePolicy403JSONResponse) VisitDeletePolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeletePolicy404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response DeletePolicy404JSONResponse) VisitDeletePolicyResponse(w http.ResponseWriter) error {
@@ -763,6 +833,24 @@ type GetPolicy200JSONResponse Policy
 func (response GetPolicy200JSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPolicy401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPolicy401JSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPolicy403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetPolicy403JSONResponse) VisitGetPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -810,6 +898,24 @@ type ApplyPolicy400JSONResponse struct{ BadRequestJSONResponse }
 func (response ApplyPolicy400JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyPolicy401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ApplyPolicy401JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApplyPolicy403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApplyPolicy403JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }

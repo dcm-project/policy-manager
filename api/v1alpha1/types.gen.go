@@ -17,7 +17,9 @@ const (
 	INVALIDARGUMENT    ErrorType = "INVALID_ARGUMENT"
 	NOTFOUND           ErrorType = "NOT_FOUND"
 	OUTOFRANGE         ErrorType = "OUT_OF_RANGE"
+	PERMISSIONDENIED   ErrorType = "PERMISSION_DENIED"
 	RESOURCEEXHAUSTED  ErrorType = "RESOURCE_EXHAUSTED"
+	UNAUTHENTICATED    ErrorType = "UNAUTHENTICATED"
 	UNAVAILABLE        ErrorType = "UNAVAILABLE"
 	UNIMPLEMENTED      ErrorType = "UNIMPLEMENTED"
 )
@@ -178,6 +180,11 @@ type AlreadyExists = Error
 // Provides structured error information for API failures.
 type BadRequest = Error
 
+// Forbidden Error response following RFC 7807 Problem Details and AEP-193.
+//
+// Provides structured error information for API failures.
+type Forbidden = Error
+
 // InternalServerError Error response following RFC 7807 Problem Details and AEP-193.
 //
 // Provides structured error information for API failures.
@@ -187,6 +194,11 @@ type InternalServerError = Error
 //
 // Provides structured error information for API failures.
 type NotFound = Error
+
+// Unauthorized Error response following RFC 7807 Problem Details and AEP-193.
+//
+// Provides structured error information for API failures.
+type Unauthorized = Error
 
 // ValidationError Error response following RFC 7807 Problem Details and AEP-193.
 //

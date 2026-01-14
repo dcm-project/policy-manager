@@ -536,6 +536,8 @@ type ListPoliciesResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ListPoliciesResponse
 	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
 	JSON500      *InternalServerError
 }
 
@@ -560,6 +562,8 @@ type CreatePolicyResponse struct {
 	HTTPResponse *http.Response
 	JSON201      *Policy
 	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
 	JSON409      *AlreadyExists
 	JSON422      *ValidationError
 	JSON500      *InternalServerError
@@ -584,6 +588,8 @@ func (r CreatePolicyResponse) StatusCode() int {
 type DeletePolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON500      *InternalServerError
 }
@@ -608,6 +614,8 @@ type GetPolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Policy
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON500      *InternalServerError
 }
@@ -633,6 +641,8 @@ type ApplyPolicyResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *Policy
 	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON500      *InternalServerError
 }
@@ -742,6 +752,20 @@ func ParseListPoliciesResponse(rsp *http.Response) (*ListPoliciesResponse, error
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -781,6 +805,20 @@ func ParseCreatePolicyResponse(rsp *http.Response) (*CreatePolicyResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest AlreadyExists
@@ -822,6 +860,20 @@ func ParseDeletePolicyResponse(rsp *http.Response) (*DeletePolicyResponse, error
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -861,6 +913,20 @@ func ParseGetPolicyResponse(rsp *http.Response) (*GetPolicyResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound
@@ -908,6 +974,20 @@ func ParseApplyPolicyResponse(rsp *http.Response) (*ApplyPolicyResponse, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound
