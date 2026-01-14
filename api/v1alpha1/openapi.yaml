@@ -21,12 +21,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 
 servers:
-  - url: https://api.example.com
-    description: Production server
-  - url: https://staging-api.example.com
-    description: Staging server
-  - url: http://localhost:8080
-    description: Local development server
+  - url: /api/v1alpha1
 
 tags:
   - name: Policies
