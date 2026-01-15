@@ -113,7 +113,7 @@ paths:
         Use the `filter` parameter with CEL-style expressions:
         - `policy_type='GLOBAL'`
         - `enabled=true`
-        - `policy_type='TENANT' AND enabled=true`
+        - `policy_type='USER' AND enabled=true`
 
         ## Ordering
         Use the `order_by` parameter:
@@ -149,7 +149,7 @@ paths:
           in: query
           description: |
             Filter expression to apply to the list. Supports filtering by:
-            - `policy_type`: GLOBAL, TENANT, or USER
+            - `policy_type`: GLOBAL or USER
             - `enabled`: true or false
 
             Examples:
@@ -325,7 +325,7 @@ components:
         Represents an OPA (Open Policy Agent) policy resource.
 
         Policies define authorization rules using Rego code and can be scoped
-        to different levels (GLOBAL, TENANT, or USER). They are matched against
+        to different levels (GLOBAL or USER). They are matched against
         requests using label selectors and evaluated in priority order.
 
       required:
@@ -377,13 +377,11 @@ components:
             Scope of the policy application. This field is immutable after creation.
 
             - GLOBAL: Applies to all requests across the system
-            - TENANT: Applies to requests within a specific tenant
             - USER: Applies to requests for a specific user
 
-            Policies are evaluated in hierarchical order: Global -> Tenant -> User
+            Policies are evaluated in hierarchical order: Global -> User
           enum:
             - GLOBAL
-            - TENANT
             - USER
           example: GLOBAL
         label_selector:
@@ -395,7 +393,6 @@ components:
 
             Common label keys:
             - environment: production, staging, development
-            - tenant_id: tenant identifier
             - user_id: user identifier
             - service: service name
             - region: geographical region

@@ -35,7 +35,6 @@ const (
 // Defines values for PolicyPolicyType.
 const (
 	GLOBAL PolicyPolicyType = "GLOBAL"
-	TENANT PolicyPolicyType = "TENANT"
 	USER   PolicyPolicyType = "USER"
 )
 
@@ -92,7 +91,7 @@ type ListPoliciesResponse struct {
 // Policy Represents an OPA (Open Policy Agent) policy resource.
 //
 // Policies define authorization rules using Rego code and can be scoped
-// to different levels (GLOBAL, TENANT, or USER). They are matched against
+// to different levels (GLOBAL or USER). They are matched against
 // requests using label selectors and evaluated in priority order.
 type Policy struct {
 	// CreateTime Timestamp when the policy was created. This field is output-only
@@ -126,7 +125,6 @@ type Policy struct {
 	//
 	// Common label keys:
 	// - environment: production, staging, development
-	// - tenant_id: tenant identifier
 	// - user_id: user identifier
 	// - service: service name
 	// - region: geographical region
@@ -142,10 +140,9 @@ type Policy struct {
 	// PolicyType Scope of the policy application. This field is immutable after creation.
 	//
 	// - GLOBAL: Applies to all requests across the system
-	// - TENANT: Applies to requests within a specific tenant
 	// - USER: Applies to requests for a specific user
 	//
-	// Policies are evaluated in hierarchical order: Global -> Tenant -> User
+	// Policies are evaluated in hierarchical order: Global -> User
 	PolicyType PolicyPolicyType `json:"policy_type"`
 
 	// Priority Priority value for policy evaluation order. Lower numbers have
@@ -178,10 +175,9 @@ type Policy struct {
 // PolicyPolicyType Scope of the policy application. This field is immutable after creation.
 //
 // - GLOBAL: Applies to all requests across the system
-// - TENANT: Applies to requests within a specific tenant
 // - USER: Applies to requests for a specific user
 //
-// Policies are evaluated in hierarchical order: Global -> Tenant -> User
+// Policies are evaluated in hierarchical order: Global -> User
 type PolicyPolicyType string
 
 // PolicyIdPath defines model for PolicyIdPath.
@@ -234,7 +230,7 @@ type ListPoliciesParams struct {
 	MaxPageSize *int32 `form:"max_page_size,omitempty" json:"max_page_size,omitempty"`
 
 	// Filter Filter expression to apply to the list. Supports filtering by:
-	// - `policy_type`: GLOBAL, TENANT, or USER
+	// - `policy_type`: GLOBAL or USER
 	// - `enabled`: true or false
 	//
 	// Examples:
