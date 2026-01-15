@@ -194,7 +194,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /policies/{policy_id}:
+  /policies/{policyId}:
     get:
       tags:
         - Policies
@@ -301,7 +301,7 @@ paths:
 components:
   parameters:
     PolicyIdPath:
-      name: policy_id
+      name: policyId
       in: path
       required: true
       description: |
@@ -336,7 +336,7 @@ components:
         path:
           type: string
           description: |
-            Resource path in the format "policies/{policy_id}".
+            Resource path in the format "policies/{policyId}".
             This field is output-only and set by the server.
 
             Follows AEP-122 resource path conventions.

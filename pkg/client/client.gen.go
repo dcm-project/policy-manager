@@ -401,7 +401,7 @@ func NewDeletePolicyRequest(server string, policyId PolicyIdPath) (*http.Request
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policy_id", runtime.ParamLocationPath, policyId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policyId", runtime.ParamLocationPath, policyId)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +435,7 @@ func NewGetPolicyRequest(server string, policyId PolicyIdPath) (*http.Request, e
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policy_id", runtime.ParamLocationPath, policyId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policyId", runtime.ParamLocationPath, policyId)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +480,7 @@ func NewApplyPolicyRequestWithBody(server string, policyId PolicyIdPath, content
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policy_id", runtime.ParamLocationPath, policyId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "policyId", runtime.ParamLocationPath, policyId)
 	if err != nil {
 		return nil, err
 	}

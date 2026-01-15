@@ -133,7 +133,7 @@ type Policy struct {
 	// - tier: service tier (critical, standard, etc.)
 	LabelSelector *map[string]string `json:"label_selector,omitempty"`
 
-	// Path Resource path in the format "policies/{policy_id}".
+	// Path Resource path in the format "policies/{policyId}".
 	// This field is output-only and set by the server.
 	//
 	// Follows AEP-122 resource path conventions.
@@ -289,13 +289,13 @@ type ServerInterface interface {
 	// (POST /policies)
 	CreatePolicy(w http.ResponseWriter, r *http.Request, params CreatePolicyParams)
 	// Delete a policy
-	// (DELETE /policies/{policy_id})
+	// (DELETE /policies/{policyId})
 	DeletePolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
 	// Get a policy
-	// (GET /policies/{policy_id})
+	// (GET /policies/{policyId})
 	GetPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
 	// Update a policy
-	// (PUT /policies/{policy_id})
+	// (PUT /policies/{policyId})
 	ApplyPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
 }
 
@@ -322,19 +322,19 @@ func (_ Unimplemented) CreatePolicy(w http.ResponseWriter, r *http.Request, para
 }
 
 // Delete a policy
-// (DELETE /policies/{policy_id})
+// (DELETE /policies/{policyId})
 func (_ Unimplemented) DeletePolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get a policy
-// (GET /policies/{policy_id})
+// (GET /policies/{policyId})
 func (_ Unimplemented) GetPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update a policy
-// (PUT /policies/{policy_id})
+// (PUT /policies/{policyId})
 func (_ Unimplemented) ApplyPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -445,12 +445,12 @@ func (siw *ServerInterfaceWrapper) DeletePolicy(w http.ResponseWriter, r *http.R
 
 	var err error
 
-	// ------------- Path parameter "policy_id" -------------
+	// ------------- Path parameter "policyId" -------------
 	var policyId PolicyIdPath
 
-	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policyId", chi.URLParam(r, "policyId"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyId", Err: err})
 		return
 	}
 
@@ -470,12 +470,12 @@ func (siw *ServerInterfaceWrapper) GetPolicy(w http.ResponseWriter, r *http.Requ
 
 	var err error
 
-	// ------------- Path parameter "policy_id" -------------
+	// ------------- Path parameter "policyId" -------------
 	var policyId PolicyIdPath
 
-	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policyId", chi.URLParam(r, "policyId"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyId", Err: err})
 		return
 	}
 
@@ -495,12 +495,12 @@ func (siw *ServerInterfaceWrapper) ApplyPolicy(w http.ResponseWriter, r *http.Re
 
 	var err error
 
-	// ------------- Path parameter "policy_id" -------------
+	// ------------- Path parameter "policyId" -------------
 	var policyId PolicyIdPath
 
-	err = runtime.BindStyledParameterWithOptions("simple", "policy_id", chi.URLParam(r, "policy_id"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "policyId", chi.URLParam(r, "policyId"), &policyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policy_id", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "policyId", Err: err})
 		return
 	}
 
@@ -638,13 +638,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/policies", wrapper.CreatePolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/policies/{policy_id}", wrapper.DeletePolicy)
+		r.Delete(options.BaseURL+"/policies/{policyId}", wrapper.DeletePolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/policies/{policy_id}", wrapper.GetPolicy)
+		r.Get(options.BaseURL+"/policies/{policyId}", wrapper.GetPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/policies/{policy_id}", wrapper.ApplyPolicy)
+		r.Put(options.BaseURL+"/policies/{policyId}", wrapper.ApplyPolicy)
 	})
 
 	return r
@@ -818,7 +818,7 @@ func (response CreatePolicy500JSONResponse) VisitCreatePolicyResponse(w http.Res
 }
 
 type DeletePolicyRequestObject struct {
-	PolicyId PolicyIdPath `json:"policy_id"`
+	PolicyId PolicyIdPath `json:"policyId"`
 }
 
 type DeletePolicyResponseObject interface {
@@ -872,7 +872,7 @@ func (response DeletePolicy500JSONResponse) VisitDeletePolicyResponse(w http.Res
 }
 
 type GetPolicyRequestObject struct {
-	PolicyId PolicyIdPath `json:"policy_id"`
+	PolicyId PolicyIdPath `json:"policyId"`
 }
 
 type GetPolicyResponseObject interface {
@@ -927,7 +927,7 @@ func (response GetPolicy500JSONResponse) VisitGetPolicyResponse(w http.ResponseW
 }
 
 type ApplyPolicyRequestObject struct {
-	PolicyId PolicyIdPath `json:"policy_id"`
+	PolicyId PolicyIdPath `json:"policyId"`
 	Body     *ApplyPolicyJSONRequestBody
 }
 
@@ -1003,13 +1003,13 @@ type StrictServerInterface interface {
 	// (POST /policies)
 	CreatePolicy(ctx context.Context, request CreatePolicyRequestObject) (CreatePolicyResponseObject, error)
 	// Delete a policy
-	// (DELETE /policies/{policy_id})
+	// (DELETE /policies/{policyId})
 	DeletePolicy(ctx context.Context, request DeletePolicyRequestObject) (DeletePolicyResponseObject, error)
 	// Get a policy
-	// (GET /policies/{policy_id})
+	// (GET /policies/{policyId})
 	GetPolicy(ctx context.Context, request GetPolicyRequestObject) (GetPolicyResponseObject, error)
 	// Update a policy
-	// (PUT /policies/{policy_id})
+	// (PUT /policies/{policyId})
 	ApplyPolicy(ctx context.Context, request ApplyPolicyRequestObject) (ApplyPolicyResponseObject, error)
 }
 

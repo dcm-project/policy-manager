@@ -125,7 +125,7 @@ type Policy struct {
 	// - tier: service tier (critical, standard, etc.)
 	LabelSelector *map[string]string `json:"label_selector,omitempty"`
 
-	// Path Resource path in the format "policies/{policy_id}".
+	// Path Resource path in the format "policies/{policyId}".
 	// This field is output-only and set by the server.
 	//
 	// Follows AEP-122 resource path conventions.
