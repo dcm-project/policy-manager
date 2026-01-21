@@ -313,7 +313,7 @@ components:
         - Must end with a letter or number
       schema:
         type: string
-        pattern: '^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+        pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
         minLength: 1
         maxLength: 63
       example: global-auth-policy
@@ -341,7 +341,7 @@ components:
 
             Follows AEP-122 resource path conventions.
           readOnly: true
-          pattern: '^policies/[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+          pattern: '^policies/[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
           example: policies/global-auth-policy
         id:
           type: string
