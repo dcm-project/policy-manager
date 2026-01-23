@@ -3,17 +3,25 @@ module github.com/dcm-project/policy-manager
 go 1.24.6
 
 require (
+	github.com/getkin/kin-openapi v0.133.0
+	github.com/go-chi/chi/v5 v5.2.4
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.1
+	github.com/oapi-codegen/runtime v1.1.2
 	github.com/onsi/ginkgo/v2 v2.21.0
+	github.com/onsi/gomega v1.34.2
 )
 
 require (
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
-	github.com/getkin/kin-openapi v0.133.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/uuid v1.5.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -25,7 +33,9 @@ require (
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sync v0.9.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/tools v0.26.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
