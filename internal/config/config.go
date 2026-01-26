@@ -10,12 +10,12 @@ type ServiceConfig struct {
 
 // DBConfig holds database configuration
 type DBConfig struct {
-	Type     string `envconfig:"DB_TYPE" default:"sqlite"`
-	Name     string `envconfig:"DB_NAME" default:"policy_manager.db"`
-	Hostname string `envconfig:"DB_HOSTNAME" default:"localhost"`
+	Type     string `envconfig:"DB_TYPE" default:"pgsql"`
+	Hostname string `envconfig:"DB_HOST" default:"localhost"`
 	Port     string `envconfig:"DB_PORT" default:"5432"`
-	User     string `envconfig:"DB_USER" default:"postgres"`
-	Password string `envconfig:"DB_PASSWORD" default:""`
+	Name     string `envconfig:"DB_NAME" default:"policy-manager"`
+	User     string `envconfig:"DB_USER" default:"admin"`
+	Password string `envconfig:"DB_PASSWORD" default:"adminpass"`
 }
 
 // Config is the root configuration structure
