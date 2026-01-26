@@ -81,10 +81,11 @@ var _ = Describe("Policy Store", func() {
 			policyStore.Create(ctx, newPolicy("p1"))
 			policyStore.Create(ctx, newPolicy("p2"))
 
-			policies, err := policyStore.List(ctx, nil)
+			result, err := policyStore.List(ctx, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(policies).To(HaveLen(2))
+			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.NextPageToken).To(BeEmpty())
 		})
 
 		It("filters by policy type", func() {
@@ -100,11 +101,11 @@ var _ = Describe("Policy Store", func() {
 			opts := &store.PolicyListOptions{
 				Filter: &store.PolicyFilter{PolicyType: &globalType},
 			}
-			globals, err := policyStore.List(ctx, opts)
+			result, err := policyStore.List(ctx, opts)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(globals).To(HaveLen(1))
-			Expect(globals[0].ID).To(Equal("global-policy"))
+			Expect(result.Policies).To(HaveLen(1))
+			Expect(result.Policies[0].ID).To(Equal("global-policy"))
 		})
 
 		It("filters by enabled status", func() {
@@ -120,11 +121,11 @@ var _ = Describe("Policy Store", func() {
 			opts := &store.PolicyListOptions{
 				Filter: &store.PolicyFilter{Enabled: &enabled},
 			}
-			enabledPolicies, err := policyStore.List(ctx, opts)
+			result, err := policyStore.List(ctx, opts)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(enabledPolicies).To(HaveLen(1))
-			Expect(enabledPolicies[0].ID).To(Equal("enabled-policy"))
+			Expect(result.Policies).To(HaveLen(1))
+			Expect(result.Policies[0].ID).To(Equal("enabled-policy"))
 		})
 
 		It("filters by both policy type and enabled status", func() {
@@ -151,11 +152,11 @@ var _ = Describe("Policy Store", func() {
 					Enabled:    &enabled,
 				},
 			}
-			policies, err := policyStore.List(ctx, opts)
+			result, err := policyStore.List(ctx, opts)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(policies).To(HaveLen(1))
-			Expect(policies[0].ID).To(Equal("global-enabled"))
+			Expect(result.Policies).To(HaveLen(1))
+			Expect(result.Policies[0].ID).To(Equal("global-enabled"))
 		})
 
 		It("orders policies by priority ascending by default", func() {
@@ -171,13 +172,13 @@ var _ = Describe("Policy Store", func() {
 			p3.Priority = 400
 			policyStore.Create(ctx, p3)
 
-			policies, err := policyStore.List(ctx, nil)
+			result, err := policyStore.List(ctx, nil)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(policies).To(HaveLen(3))
-			Expect(policies[0].ID).To(Equal("high-priority"))
-			Expect(policies[1].ID).To(Equal("medium-priority"))
-			Expect(policies[2].ID).To(Equal("low-priority"))
+			Expect(result.Policies).To(HaveLen(3))
+			Expect(result.Policies[0].ID).To(Equal("high-priority"))
+			Expect(result.Policies[1].ID).To(Equal("medium-priority"))
+			Expect(result.Policies[2].ID).To(Equal("low-priority"))
 		})
 
 		It("applies custom ordering", func() {
@@ -192,15 +193,15 @@ var _ = Describe("Policy Store", func() {
 			opts := &store.PolicyListOptions{
 				OrderBy: "display_name ASC",
 			}
-			policies, err := policyStore.List(ctx, opts)
+			result, err := policyStore.List(ctx, opts)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(policies).To(HaveLen(2))
-			Expect(policies[0].DisplayName).To(Equal("Alpha Policy"))
-			Expect(policies[1].DisplayName).To(Equal("Zebra Policy"))
+			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.Policies[0].DisplayName).To(Equal("Alpha Policy"))
+			Expect(result.Policies[1].DisplayName).To(Equal("Zebra Policy"))
 		})
 
-		It("applies limit and offset for pagination", func() {
+		It("applies page size for pagination", func() {
 			for i := 1; i <= 5; i++ {
 				p := newPolicy("policy-" + string(rune('0'+i)))
 				p.Priority = int32(i * 100)
@@ -208,15 +209,75 @@ var _ = Describe("Policy Store", func() {
 			}
 
 			opts := &store.PolicyListOptions{
-				Limit:  2,
-				Offset: 1,
+				PageSize: 2,
 			}
-			policies, err := policyStore.List(ctx, opts)
+			result, err := policyStore.List(ctx, opts)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(policies).To(HaveLen(2))
-			Expect(policies[0].Priority).To(Equal(int32(200)))
-			Expect(policies[1].Priority).To(Equal(int32(300)))
+			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.Policies[0].Priority).To(Equal(int32(100)))
+			Expect(result.Policies[1].Priority).To(Equal(int32(200)))
+			Expect(result.NextPageToken).NotTo(BeEmpty())
+		})
+
+		It("uses page token for pagination across multiple pages", func() {
+			for i := 1; i <= 5; i++ {
+				p := newPolicy("policy-" + string(rune('0'+i)))
+				p.Priority = int32(i * 100)
+				policyStore.Create(ctx, p)
+			}
+
+			// First page
+			opts := &store.PolicyListOptions{
+				PageSize: 2,
+			}
+			result, err := policyStore.List(ctx, opts)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.Policies[0].Priority).To(Equal(int32(100)))
+			Expect(result.Policies[1].Priority).To(Equal(int32(200)))
+			Expect(result.NextPageToken).NotTo(BeEmpty())
+
+			// Second page using page token
+			opts = &store.PolicyListOptions{
+				PageSize:  2,
+				PageToken: &result.NextPageToken,
+			}
+			result, err = policyStore.List(ctx, opts)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.Policies[0].Priority).To(Equal(int32(300)))
+			Expect(result.Policies[1].Priority).To(Equal(int32(400)))
+			Expect(result.NextPageToken).NotTo(BeEmpty())
+
+			// Third page (last page with 1 item)
+			opts = &store.PolicyListOptions{
+				PageSize:  2,
+				PageToken: &result.NextPageToken,
+			}
+			result, err = policyStore.List(ctx, opts)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Policies).To(HaveLen(1))
+			Expect(result.Policies[0].Priority).To(Equal(int32(500)))
+			Expect(result.NextPageToken).To(BeEmpty())
+		})
+
+		It("uses default page size of 50 when not specified", func() {
+			// Create 51 policies to test default page size
+			for i := 1; i <= 51; i++ {
+				p := newPolicy("policy-" + string(rune('0'+i)))
+				p.Priority = int32(i * 10)
+				policyStore.Create(ctx, p)
+			}
+
+			result, err := policyStore.List(ctx, &store.PolicyListOptions{})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Policies).To(HaveLen(50))
+			Expect(result.NextPageToken).NotTo(BeEmpty())
 		})
 	})
 

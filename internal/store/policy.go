@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"strconv"
 
 	"github.com/dcm-project/policy-manager/internal/store/model"
 	"gorm.io/gorm"
@@ -25,12 +27,18 @@ type PolicyFilter struct {
 type PolicyListOptions struct {
 	Filter    *PolicyFilter
 	OrderBy   string
-	Limit     int
-	Offset    int
+	PageToken *string
+	PageSize  int
+}
+
+// PolicyListResult contains the result of a List operation.
+type PolicyListResult struct {
+	Policies      model.PolicyList
+	NextPageToken string
 }
 
 type Policy interface {
-	List(ctx context.Context, opts *PolicyListOptions) (model.PolicyList, error)
+	List(ctx context.Context, opts *PolicyListOptions) (*PolicyListResult, error)
 	Create(ctx context.Context, policy model.Policy) (*model.Policy, error)
 	Delete(ctx context.Context, id string) error
 	Update(ctx context.Context, policy model.Policy) (*model.Policy, error)
@@ -47,9 +55,26 @@ func NewPolicy(db *gorm.DB) Policy {
 	return &PolicyStore{db: db}
 }
 
-func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (model.PolicyList, error) {
+func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*PolicyListResult, error) {
 	var policies model.PolicyList
 	query := s.db.WithContext(ctx)
+
+	// Default page size
+	pageSize := 50
+	if opts != nil && opts.PageSize > 0 {
+		pageSize = opts.PageSize
+	}
+
+	// Decode page token to get offset
+	offset := 0
+	if opts != nil && opts.PageToken != nil && *opts.PageToken != "" {
+		decoded, err := base64.StdEncoding.DecodeString(*opts.PageToken)
+		if err == nil {
+			if parsedOffset, err := strconv.Atoi(string(decoded)); err == nil {
+				offset = parsedOffset
+			}
+		}
+	}
 
 	if opts != nil {
 		if opts.Filter != nil {
@@ -68,23 +93,32 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (model.
 			// Default order by priority ascending
 			query = query.Order("priority ASC")
 		}
-
-		// Apply pagination
-		if opts.Limit > 0 {
-			query = query.Limit(opts.Limit)
-		}
-		if opts.Offset > 0 {
-			query = query.Offset(opts.Offset)
-		}
 	} else {
 		// Default order when no options provided
 		query = query.Order("priority ASC")
 	}
 
+	// Query with limit+1 to detect if there are more results
+	query = query.Limit(pageSize + 1).Offset(offset)
+
 	if err := query.Find(&policies).Error; err != nil {
 		return nil, err
 	}
-	return policies, nil
+
+	// Generate next page token if there are more results
+	result := &PolicyListResult{
+		Policies: policies,
+	}
+
+	if len(policies) > pageSize {
+		// Trim to requested page size
+		result.Policies = policies[:pageSize]
+		// Encode next offset as page token
+		nextOffset := offset + pageSize
+		result.NextPageToken = base64.StdEncoding.EncodeToString([]byte(strconv.Itoa(nextOffset)))
+	}
+
+	return result, nil
 }
 
 func (s *PolicyStore) Create(ctx context.Context, policy model.Policy) (*model.Policy, error) {
