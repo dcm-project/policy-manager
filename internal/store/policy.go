@@ -90,12 +90,12 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*Polic
 		if opts.OrderBy != "" {
 			query = query.Order(opts.OrderBy)
 		} else {
-			// Default order by priority ascending
-			query = query.Order("priority ASC")
+			// Default order by policy_type, priority, id ascending
+			query = query.Order("policy_type ASC, priority ASC, id ASC")
 		}
 	} else {
 		// Default order when no options provided
-		query = query.Order("priority ASC")
+		query = query.Order("policy_type ASC, priority ASC, id ASC")
 	}
 
 	// Query with limit+1 to detect if there are more results
@@ -140,7 +140,12 @@ func (s *PolicyStore) Delete(ctx context.Context, id string) error {
 }
 
 func (s *PolicyStore) Update(ctx context.Context, policy model.Policy) (*model.Policy, error) {
-	result := s.db.WithContext(ctx).Model(&policy).Clauses(clause.Returning{}).Updates(&policy)
+	// Use Select to update all mutable fields including zero values
+	// Immutable fields (id, policy_type, create_time) are not updated
+	result := s.db.WithContext(ctx).Model(&policy).
+		Select("display_name", "description", "label_selector", "priority", "enabled").
+		Clauses(clause.Returning{}).
+		Updates(&policy)
 	if result.Error != nil {
 		return nil, result.Error
 	}
