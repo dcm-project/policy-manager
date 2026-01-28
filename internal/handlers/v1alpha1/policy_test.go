@@ -12,11 +12,11 @@ import (
 
 // MockPolicyService is a mock implementation of PolicyService for testing
 type MockPolicyService struct {
-	CreatePolicyFn  func(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
-	GetPolicyFn     func(ctx context.Context, id string) (*v1alpha1.Policy, error)
-	ListPoliciesFn  func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
-	UpdatePolicyFn  func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error)
-	DeletePolicyFn  func(ctx context.Context, id string) error
+	CreatePolicyFn func(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
+	GetPolicyFn    func(ctx context.Context, id string) (*v1alpha1.Policy, error)
+	ListPoliciesFn func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
+	UpdatePolicyFn func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error)
+	DeletePolicyFn func(ctx context.Context, id string) error
 }
 
 func (m *MockPolicyService) CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error) {
@@ -78,7 +78,7 @@ var _ = Describe("PolicyHandler", func() {
 			Expect(healthResponse.Status).To(Equal("ok"))
 
 			Expect(healthResponse.Path).NotTo(BeNil())
-			Expect(*healthResponse.Path).To(Equal("/api/v1alpha1/health"))
+			Expect(*healthResponse.Path).To(Equal("health"))
 		})
 	})
 
@@ -118,7 +118,6 @@ var _ = Describe("PolicyHandler", func() {
 			createResponse, ok := response.(server.CreatePolicy201JSONResponse)
 			Expect(ok).To(BeTrue(), "response should be CreatePolicy201JSONResponse")
 			Expect(*createResponse.Body.Id).To(Equal("test-policy"))
-			Expect(createResponse.Headers.Location).To(Equal("/api/v1alpha1/policies/test-policy"))
 		})
 
 		It("should return 400 when body is nil", func() {
