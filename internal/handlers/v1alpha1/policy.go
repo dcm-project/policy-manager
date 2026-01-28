@@ -2,15 +2,10 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/api/server"
 	"github.com/dcm-project/policy-manager/internal/service"
-)
-
-const (
-	ApiPrefix = "/api/v1alpha1/"
 )
 
 type PolicyHandler struct {
@@ -29,7 +24,7 @@ func NewPolicyHandler(service service.PolicyService) *PolicyHandler {
 // (GET /health)
 func (h *PolicyHandler) GetHealth(ctx context.Context, request server.GetHealthRequestObject) (server.GetHealthResponseObject, error) {
 	status := "ok"
-	path := fmt.Sprintf("%shealth", ApiPrefix)
+	path := "health"
 	return server.GetHealth200JSONResponse{
 		Status: status,
 		Path:   &path,
@@ -58,15 +53,9 @@ func (h *PolicyHandler) CreatePolicy(ctx context.Context, request server.CreateP
 		return h.handleCreatePolicyError(err, request), nil
 	}
 
-	// Build Location header
-	location := fmt.Sprintf("%spolicies/%s", ApiPrefix, *created.Id)
-
 	// Convert back to server.Policy
 	return server.CreatePolicy201JSONResponse{
 		Body: policyV1Alpha1ToServer(*created),
-		Headers: server.CreatePolicy201ResponseHeaders{
-			Location: location,
-		},
 	}, nil
 }
 
