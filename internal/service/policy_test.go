@@ -175,7 +175,7 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
-			Expect(serviceErr.Message).To(ContainSubstring("display_name and policy_type"))
+			Expect(serviceErr.Message).To(ContainSubstring("Policy display name and policy type"))
 		})
 
 		It("should return AlreadyExists when creating two policies with same priority and policy_type", func() {
@@ -202,7 +202,7 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
-			Expect(serviceErr.Message).To(ContainSubstring("priority and policy_type"))
+			Expect(serviceErr.Message).To(ContainSubstring("Policy priority and policy type"))
 		})
 
 		It("should use default values for optional fields", func() {
@@ -566,7 +566,7 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
-			Expect(serviceErr.Message).To(ContainSubstring("display_name and policy_type"))
+			Expect(serviceErr.Message).To(ContainSubstring("Policy display name and policy type"))
 		})
 
 		It("should return AlreadyExists when updating to another policy's priority and policy_type", func() {
@@ -600,7 +600,7 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
-			Expect(serviceErr.Message).To(ContainSubstring("priority and policy_type"))
+			Expect(serviceErr.Message).To(ContainSubstring("Policy priority and policy type"))
 		})
 	})
 

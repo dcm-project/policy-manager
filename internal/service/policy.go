@@ -88,30 +88,15 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 	if err != nil {
 		// Check for duplicate display_name+policy_type or priority+policy_type
 		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
-			return nil, NewAlreadyExistsError(
-				"A policy with this display_name and policy_type already exists",
-				"The combination of display_name and policy_type must be unique",
-			)
+			return nil, NewPolicyDisplayNamePolicyTypeTakenError(dbPolicy.DisplayName, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
 		}
 		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
-			return nil, NewAlreadyExistsError(
-				"A policy with this priority and policy_type already exists",
-				"The combination of priority and policy_type must be unique",
-			)
+			return nil, NewPolicyPriorityPolicyTypeTakenError(dbPolicy.Priority, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
 		}
-		// Check for duplicate ID error (GORM unique constraint violation)
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+		// Check for duplicate ID error
+		if errors.Is(err, store.ErrPolicyIDTaken) || strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "duplicate key") {
-			return nil, NewAlreadyExistsError(
-				"Policy already exists",
-				fmt.Sprintf("A policy with ID '%s' already exists", policyID),
-			)
-		}
-		if errors.Is(err, store.ErrPolicyIDTaken) {
-			return nil, NewAlreadyExistsError(
-				"Policy already exists",
-				fmt.Sprintf("A policy with ID '%s' already exists", policyID),
-			)
+			return nil, NewPolicyAlreadyExistsError(policyID)
 		}
 		return nil, NewInternalError("Failed to create policy", err.Error(), err)
 	}
@@ -128,10 +113,7 @@ func (s *PolicyServiceImpl) GetPolicy(ctx context.Context, id string) (*v1alpha1
 	dbPolicy, err := s.store.Policy().Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
-			return nil, NewNotFoundError(
-				"Policy not found",
-				fmt.Sprintf("Policy with ID '%s' does not exist", id),
-			)
+			return nil, NewPolicyNotFoundError(id)
 		}
 		return nil, NewInternalError("Failed to get policy", err.Error(), err)
 	}
@@ -255,10 +237,7 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 	existingDB, err := s.store.Policy().Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
-			return nil, NewNotFoundError(
-				"Policy not found",
-				fmt.Sprintf("Policy with ID '%s' does not exist", id),
-			)
+			return nil, NewPolicyNotFoundError(id)
 		}
 		return nil, NewInternalError("Failed to get existing policy", err.Error(), err)
 	}
@@ -270,28 +249,13 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
 		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
-			return nil, NewAlreadyExistsError(
-				"A policy with this display_name and policy_type already exists",
-				"The combination of display_name and policy_type must be unique",
-			)
+			return nil, NewPolicyDisplayNamePolicyTypeTakenError(*existing.DisplayName, *existing.PolicyType)
 		}
 		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
-			return nil, NewAlreadyExistsError(
-				"A policy with this priority and policy_type already exists",
-				"The combination of priority and policy_type must be unique",
-			)
+			return nil, NewPolicyPriorityPolicyTypeTakenError(*existing.Priority, *existing.PolicyType)
 		}
-		if errors.Is(err, store.ErrPolicyNotFound) {
-			return nil, NewNotFoundError(
-				"Policy not found",
-				fmt.Sprintf("Policy with ID '%s' does not exist", id),
-			)
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewNotFoundError(
-				"Policy not found",
-				fmt.Sprintf("Policy with ID '%s' does not exist", id),
-			)
+		if errors.Is(err, store.ErrPolicyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NewPolicyNotFoundError(id)
 		}
 		return nil, NewInternalError("Failed to update policy", err.Error(), err)
 	}
@@ -308,10 +272,7 @@ func (s *PolicyServiceImpl) DeletePolicy(ctx context.Context, id string) error {
 	err := s.store.Policy().Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
-			return NewNotFoundError(
-				"Policy not found",
-				fmt.Sprintf("Policy with ID '%s' does not exist", id),
-			)
+			return NewPolicyNotFoundError(id)
 		}
 		return NewInternalError("Failed to delete policy", err.Error(), err)
 	}

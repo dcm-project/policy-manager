@@ -1,6 +1,9 @@
 package service
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/dcm-project/policy-manager/api/v1alpha1"
+)
 
 // ErrorType represents the type of service error
 type ErrorType string
@@ -41,6 +44,10 @@ func NewInvalidArgumentError(message, detail string) *ServiceError {
 	}
 }
 
+func NewPolicyNotFoundError(policyID string) *ServiceError {
+	return NewNotFoundError("Policy not found", fmt.Sprintf("Policy with ID '%s' does not exist", policyID))
+}
+
 // NewNotFoundError creates a new not found error
 func NewNotFoundError(message, detail string) *ServiceError {
 	return &ServiceError{
@@ -48,6 +55,24 @@ func NewNotFoundError(message, detail string) *ServiceError {
 		Message: message,
 		Detail:  detail,
 	}
+}
+
+func NewPolicyAlreadyExistsError(policyID string) *ServiceError {
+	return NewAlreadyExistsError("Policy already exists", fmt.Sprintf("A policy with ID '%s' already exists", policyID))
+}
+
+func NewPolicyDisplayNamePolicyTypeTakenError(displayName string, policyType v1alpha1.PolicyPolicyType) *ServiceError {
+	return NewAlreadyExistsError(
+		"Policy display name and policy type already exists",
+		fmt.Sprintf("A policy with display name '%s' and policy type '%s' already exists", displayName, string(policyType)),
+	)
+}
+
+func NewPolicyPriorityPolicyTypeTakenError(priority int32, policyType v1alpha1.PolicyPolicyType) *ServiceError {
+	return NewAlreadyExistsError(
+		"Policy priority and policy type already exists",
+		fmt.Sprintf("A policy with priority '%d' and policy type '%s' already exists", priority, string(policyType)),
+	)
 }
 
 // NewAlreadyExistsError creates a new already exists error
