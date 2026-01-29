@@ -100,8 +100,8 @@ func (h *PolicyHandler) UpdatePolicy(ctx context.Context, request server.UpdateP
 		}, nil
 	}
 
-	// Convert server PolicyUpdate (PATCH body) to api/v1alpha1 PolicyUpdate
-	patch := policyUpdateServerToV1Alpha1(*request.Body)
+	// Convert server Policy (PATCH body) to api/v1alpha1 Policy
+	patch := policyServerToV1Alpha1(*request.Body)
 
 	// Call service to update policy (merge patch onto existing)
 	updated, err := h.service.UpdatePolicy(ctx, request.PolicyId, &patch)

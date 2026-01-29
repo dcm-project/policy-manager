@@ -255,7 +255,7 @@ paths:
         content:
           application/merge-patch+json:
             schema:
-              $ref: '#/components/schemas/PolicyUpdate'
+              $ref: '#/components/schemas/Policy'
       responses:
         '200':
           description: Policy updated successfully
@@ -332,10 +332,9 @@ components:
         to different levels (GLOBAL or USER). They are matched against
         requests using label selectors and evaluated in priority order.
 
-      required:
-        - display_name
-        - policy_type
-        - rego_code
+        Used for both create (POST) and update (PATCH). On create, display_name,
+        policy_type, and rego_code are required (enforced by the service). On
+        update, only fields present in the request body are merged (RFC 7396).
       properties:
         path:
           type: string
@@ -478,50 +477,6 @@ components:
         plural: policies
         patterns:
           - policies/{policy_id}
-
-    PolicyUpdate:
-      type: object
-      description: |
-        Partial policy representation for PATCH (update) requests.
-
-        Used with Content-Type `application/merge-patch+json` per RFC 7396.
-        Only include fields you want to change; omitted fields are left unchanged.
-        Use `null` to clear optional fields (e.g. description). Read-only and
-        immutable fields (path, id, create_time, update_time) are server-managed;
-        policy_type is immutable after creation and cannot be updated.
-      properties:
-        display_name:
-          type: string
-          description: Human-readable name for the policy.
-          minLength: 1
-          maxLength: 255
-          example: Global Authentication Policy
-        description:
-          type: string
-          nullable: true
-          description: Optional description. Use null to clear.
-          maxLength: 2048
-        label_selector:
-          type: object
-          description: Key-value pairs to match requests. Use null to clear.
-          additionalProperties:
-            type: string
-        priority:
-          type: integer
-          format: int32
-          description: Priority 1-1000; lower is higher priority.
-          minimum: 1
-          maximum: 1000
-          example: 100
-        rego_code:
-          type: string
-          description: OPA Rego policy code. Validated when provided.
-          minLength: 1
-          maxLength: 65536
-        enabled:
-          type: boolean
-          description: Whether the policy is active.
-          example: true
 
     ListPoliciesResponse:
       type: object

@@ -14,6 +14,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+func strPtr(s string) *string { return &s }
+
+func policyTypePtr(t v1alpha1.PolicyPolicyType) *v1alpha1.PolicyPolicyType { return &t }
+
 var _ = Describe("PolicyService", func() {
 	var (
 		db            *gorm.DB
@@ -46,9 +50,9 @@ var _ = Describe("PolicyService", func() {
 			regoCode := "package test\ndefault allow = true"
 
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    &regoCode,
 			}
 
 			created, err := policyService.CreatePolicy(ctx, policy, &clientID)
@@ -57,9 +61,12 @@ var _ = Describe("PolicyService", func() {
 			Expect(created).NotTo(BeNil())
 			Expect(*created.Id).To(Equal("my-custom-policy"))
 			Expect(*created.Path).To(Equal("policies/my-custom-policy"))
-			Expect(created.DisplayName).To(Equal("Test Policy"))
-			Expect(created.PolicyType).To(Equal(v1alpha1.GLOBAL))
-			Expect(created.RegoCode).To(Equal(""))          // Should be empty
+			Expect(created.DisplayName).NotTo(BeNil())
+			Expect(*created.DisplayName).To(Equal("Test Policy"))
+			Expect(created.PolicyType).NotTo(BeNil())
+			Expect(*created.PolicyType).To(Equal(v1alpha1.GLOBAL))
+			Expect(created.RegoCode).NotTo(BeNil())
+			Expect(*created.RegoCode).To(Equal(""))         // Should be empty
 			Expect(*created.Enabled).To(BeTrue())           // Default value
 			Expect(*created.Priority).To(Equal(int32(500))) // Default value
 		})
@@ -68,9 +75,9 @@ var _ = Describe("PolicyService", func() {
 			regoCode := "package test\ndefault allow = true"
 
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.USER,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.USER),
+				RegoCode:    &regoCode,
 			}
 
 			created, err := policyService.CreatePolicy(ctx, policy, nil)
@@ -85,9 +92,9 @@ var _ = Describe("PolicyService", func() {
 
 		It("should validate RegoCode is non-empty", func() {
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr(""),
 			}
 
 			_, err := policyService.CreatePolicy(ctx, policy, nil)
@@ -96,14 +103,14 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
-			Expect(serviceErr.Message).To(ContainSubstring("RegoCode is required"))
+			Expect(serviceErr.Message).To(ContainSubstring("rego_code is required"))
 		})
 
 		It("should validate RegoCode is not just whitespace", func() {
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "   \n\t  ",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("   \n\t  "),
 			}
 
 			_, err := policyService.CreatePolicy(ctx, policy, nil)
@@ -117,9 +124,9 @@ var _ = Describe("PolicyService", func() {
 		It("should validate ID format per AEP-122", func() {
 			invalidID := "Invalid-ID-With-CAPS"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 
 			_, err := policyService.CreatePolicy(ctx, policy, &invalidID)
@@ -134,9 +141,9 @@ var _ = Describe("PolicyService", func() {
 		It("should return AlreadyExists error for duplicate ID", func() {
 			clientID := "duplicate-policy"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 
 			// Create first policy
@@ -154,9 +161,9 @@ var _ = Describe("PolicyService", func() {
 
 		It("should return AlreadyExists when creating two policies with same display_name and policy_type", func() {
 			policy := v1alpha1.Policy{
-				DisplayName: "Unique Display Name",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Unique Display Name"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 			id1 := "policy-dn-1"
 			_, err := policyService.CreatePolicy(ctx, policy, &id1)
@@ -174,9 +181,9 @@ var _ = Describe("PolicyService", func() {
 		It("should return AlreadyExists when creating two policies with same priority and policy_type", func() {
 			priority := int32(100)
 			policy := v1alpha1.Policy{
-				DisplayName: "Policy One",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Policy One"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 				Priority:    &priority,
 			}
 			id1 := "policy-prio-1"
@@ -184,9 +191,9 @@ var _ = Describe("PolicyService", func() {
 			Expect(err).To(BeNil())
 
 			policy2 := v1alpha1.Policy{
-				DisplayName: "Policy Two",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Policy Two"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 				Priority:    &priority,
 			}
 			id2 := "policy-prio-2"
@@ -201,9 +208,9 @@ var _ = Describe("PolicyService", func() {
 		It("should use default values for optional fields", func() {
 			clientID := "defaults-test"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 
 			created, err := policyService.CreatePolicy(ctx, policy, &clientID)
@@ -221,9 +228,9 @@ var _ = Describe("PolicyService", func() {
 			labelSelector := map[string]string{"env": "prod"}
 
 			policy := v1alpha1.Policy{
-				DisplayName:   "Test Policy",
-				PolicyType:    v1alpha1.GLOBAL,
-				RegoCode:      "package test",
+				DisplayName:   strPtr("Test Policy"),
+				PolicyType:    policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:      strPtr("package test"),
 				Enabled:       &enabled,
 				Priority:      &priority,
 				Description:   &description,
@@ -245,9 +252,9 @@ var _ = Describe("PolicyService", func() {
 			// Create a policy first
 			clientID := "get-test"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test Policy",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 			created, err := policyService.CreatePolicy(ctx, policy, &clientID)
 			Expect(err).To(BeNil())
@@ -259,8 +266,10 @@ var _ = Describe("PolicyService", func() {
 			Expect(retrieved).NotTo(BeNil())
 			Expect(*retrieved.Id).To(Equal("get-test"))
 			Expect(*retrieved.Path).To(Equal("policies/get-test"))
-			Expect(retrieved.DisplayName).To(Equal("Test Policy"))
-			Expect(retrieved.RegoCode).To(Equal("")) // Should be empty
+			Expect(retrieved.DisplayName).NotTo(BeNil())
+			Expect(*retrieved.DisplayName).To(Equal("Test Policy"))
+			Expect(retrieved.RegoCode).NotTo(BeNil())
+			Expect(*retrieved.RegoCode).To(Equal("")) // Should be empty
 			Expect(retrieved.CreateTime).To(Equal(created.CreateTime))
 		})
 
@@ -293,14 +302,16 @@ var _ = Describe("PolicyService", func() {
 			for _, p := range policies {
 				enabled := p.enabled
 				priority := p.priority
+				displayName := "Test " + p.id
 				policy := v1alpha1.Policy{
-					DisplayName: "Test " + p.id,
-					PolicyType:  p.policyType,
-					RegoCode:    "package test",
+					DisplayName: &displayName,
+					PolicyType:  policyTypePtr(p.policyType),
+					RegoCode:    strPtr("package test"),
 					Enabled:     &enabled,
 					Priority:    &priority,
 				}
-				_, err := policyService.CreatePolicy(ctx, policy, &p.id)
+				id := p.id
+				_, err := policyService.CreatePolicy(ctx, policy, &id)
 				Expect(err).To(BeNil())
 			}
 		})
@@ -326,7 +337,8 @@ var _ = Describe("PolicyService", func() {
 			Expect(err).To(BeNil())
 			Expect(result.Policies).To(HaveLen(2))
 			for _, p := range result.Policies {
-				Expect(p.PolicyType).To(Equal(v1alpha1.GLOBAL))
+				Expect(p.PolicyType).NotTo(BeNil())
+				Expect(*p.PolicyType).To(Equal(v1alpha1.GLOBAL))
 			}
 		})
 
@@ -337,7 +349,8 @@ var _ = Describe("PolicyService", func() {
 			Expect(err).To(BeNil())
 			Expect(result.Policies).To(HaveLen(2))
 			for _, p := range result.Policies {
-				Expect(p.PolicyType).To(Equal(v1alpha1.USER))
+				Expect(p.PolicyType).NotTo(BeNil())
+				Expect(*p.PolicyType).To(Equal(v1alpha1.USER))
 			}
 		})
 
@@ -450,9 +463,9 @@ var _ = Describe("PolicyService", func() {
 			enabled := true
 			priority := int32(100)
 			policy := v1alpha1.Policy{
-				DisplayName: "Original Name",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package original",
+				DisplayName: strPtr("Original Name"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package original"),
 				Enabled:     &enabled,
 				Priority:    &priority,
 			}
@@ -464,7 +477,7 @@ var _ = Describe("PolicyService", func() {
 			newPriority := int32(200)
 			newDescription := "Updated description"
 			displayName := "Updated Name"
-			patch := &v1alpha1.PolicyUpdate{
+			patch := &v1alpha1.Policy{
 				DisplayName: &displayName,
 				Enabled:     &newEnabled,
 				Priority:    &newPriority,
@@ -474,7 +487,8 @@ var _ = Describe("PolicyService", func() {
 			updated, err := policyService.UpdatePolicy(ctx, "update-test", patch)
 
 			Expect(err).To(BeNil())
-			Expect(updated.DisplayName).To(Equal("Updated Name"))
+			Expect(updated.DisplayName).NotTo(BeNil())
+			Expect(*updated.DisplayName).To(Equal("Updated Name"))
 			Expect(*updated.Enabled).To(BeFalse())
 			Expect(*updated.Priority).To(Equal(int32(200)))
 			Expect(*updated.Description).To(Equal("Updated description"))
@@ -486,16 +500,16 @@ var _ = Describe("PolicyService", func() {
 		It("should validate RegoCode is non-empty when provided in patch", func() {
 			clientID := "update-rego-test"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
 			Expect(err).To(BeNil())
 
 			// Try to update with empty RegoCode in patch
 			emptyRego := ""
-			patch := &v1alpha1.PolicyUpdate{
+			patch := &v1alpha1.Policy{
 				RegoCode: &emptyRego,
 			}
 
@@ -509,7 +523,7 @@ var _ = Describe("PolicyService", func() {
 
 		It("should return NotFound error for non-existent policy", func() {
 			displayName := "Test"
-			patch := &v1alpha1.PolicyUpdate{
+			patch := &v1alpha1.Policy{
 				DisplayName: &displayName,
 			}
 
@@ -528,22 +542,22 @@ var _ = Describe("PolicyService", func() {
 			idA := "update-dn-a"
 			idB := "update-dn-b"
 			_, err := policyService.CreatePolicy(ctx, v1alpha1.Policy{
-				DisplayName: "Name A",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Name A"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    &regoCode,
 				Priority:    &prioA,
 			}, &idA)
 			Expect(err).To(BeNil())
 			_, err = policyService.CreatePolicy(ctx, v1alpha1.Policy{
-				DisplayName: "Name B",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Name B"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    &regoCode,
 				Priority:    &prioB,
 			}, &idB)
 			Expect(err).To(BeNil())
 
 			displayNameA := "Name A"
-			patch := &v1alpha1.PolicyUpdate{
+			patch := &v1alpha1.Policy{
 				DisplayName: &displayNameA,
 				Priority:    &prioB,
 			}
@@ -562,22 +576,22 @@ var _ = Describe("PolicyService", func() {
 			idA := "update-prio-a"
 			idB := "update-prio-b"
 			_, err := policyService.CreatePolicy(ctx, v1alpha1.Policy{
-				DisplayName: "Policy A",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Policy A"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    &regoCode,
 				Priority:    &prio200,
 			}, &idA)
 			Expect(err).To(BeNil())
 			_, err = policyService.CreatePolicy(ctx, v1alpha1.Policy{
-				DisplayName: "Policy B",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+				DisplayName: strPtr("Policy B"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    &regoCode,
 				Priority:    &prio300,
 			}, &idB)
 			Expect(err).To(BeNil())
 
 			displayNameB := "Policy B"
-			patch := &v1alpha1.PolicyUpdate{
+			patch := &v1alpha1.Policy{
 				DisplayName: &displayNameB,
 				Priority:    &prio200,
 			}
@@ -595,9 +609,9 @@ var _ = Describe("PolicyService", func() {
 			// Create a policy
 			clientID := "delete-test"
 			policy := v1alpha1.Policy{
-				DisplayName: "Test",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+				DisplayName: strPtr("Test"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
 			}
 			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
 			Expect(err).To(BeNil())
