@@ -122,10 +122,10 @@ func (h *PolicyHandler) handleListPoliciesError(err error, request server.ListPo
 	}
 }
 
-func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPolicyRequestObject) server.ApplyPolicyResponseObject {
+func (h *PolicyHandler) handleUpdatePolicyError(err error, request server.UpdatePolicyRequestObject) server.UpdatePolicyResponseObject {
 	serviceErr, ok := err.(*service.ServiceError)
 	if !ok {
-		return server.ApplyPolicy500JSONResponse{
+		return server.UpdatePolicy500JSONResponse{
 			InternalServerErrorJSONResponse: internalErrorResponse(buildErrorResponse(
 				500,
 				v1alpha1.INTERNAL,
@@ -137,7 +137,7 @@ func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPo
 
 	switch serviceErr.Type {
 	case service.ErrorTypeInvalidArgument, service.ErrorTypeFailedPrecondition:
-		return server.ApplyPolicy400JSONResponse{
+		return server.UpdatePolicy400JSONResponse{
 			BadRequestJSONResponse: badRequestResponse(buildErrorResponse(
 				400,
 				v1alpha1.INVALIDARGUMENT,
@@ -146,7 +146,7 @@ func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPo
 			)),
 		}
 	case service.ErrorTypeNotFound:
-		return server.ApplyPolicy404JSONResponse{
+		return server.UpdatePolicy404JSONResponse{
 			NotFoundJSONResponse: notFoundResponse(buildErrorResponse(
 				404,
 				v1alpha1.NOTFOUND,
@@ -155,7 +155,7 @@ func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPo
 			)),
 		}
 	case service.ErrorTypeAlreadyExists:
-		return server.ApplyPolicy409JSONResponse{
+		return server.UpdatePolicy409JSONResponse{
 			AlreadyExistsJSONResponse: alreadyExistsResponse(buildErrorResponse(
 				409,
 				v1alpha1.ALREADYEXISTS,
@@ -164,7 +164,7 @@ func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPo
 			)),
 		}
 	default:
-		return server.ApplyPolicy500JSONResponse{
+		return server.UpdatePolicy500JSONResponse{
 			InternalServerErrorJSONResponse: internalErrorResponse(buildErrorResponse(
 				500,
 				v1alpha1.INTERNAL,

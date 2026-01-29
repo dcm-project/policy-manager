@@ -49,3 +49,15 @@ func listResponseV1Alpha1ToServer(r v1alpha1.ListPoliciesResponse) server.ListPo
 		Policies:      policies,
 	}
 }
+
+// policyUpdateServerToV1Alpha1 converts server PolicyUpdate (PATCH body) to api/v1alpha1 PolicyUpdate.
+func policyUpdateServerToV1Alpha1(p server.PolicyUpdate) v1alpha1.PolicyUpdate {
+	return v1alpha1.PolicyUpdate{
+		Description:   p.Description,
+		DisplayName:   p.DisplayName,
+		Enabled:       p.Enabled,
+		LabelSelector: p.LabelSelector,
+		Priority:      p.Priority,
+		RegoCode:      p.RegoCode,
+	}
+}

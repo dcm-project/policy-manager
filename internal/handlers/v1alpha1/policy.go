@@ -87,10 +87,10 @@ func (h *PolicyHandler) ListPolicies(ctx context.Context, request server.ListPol
 	return server.ListPolicies200JSONResponse(listResponseV1Alpha1ToServer(*result)), nil
 }
 
-// (PUT /policies/{policyId})
-func (h *PolicyHandler) ApplyPolicy(ctx context.Context, request server.ApplyPolicyRequestObject) (server.ApplyPolicyResponseObject, error) {
+// (PATCH /policies/{policyId})
+func (h *PolicyHandler) UpdatePolicy(ctx context.Context, request server.UpdatePolicyRequestObject) (server.UpdatePolicyResponseObject, error) {
 	if request.Body == nil {
-		return server.ApplyPolicy400JSONResponse{
+		return server.UpdatePolicy400JSONResponse{
 			BadRequestJSONResponse: badRequestResponse(buildErrorResponse(
 				400,
 				v1alpha1.INVALIDARGUMENT,
@@ -100,16 +100,16 @@ func (h *PolicyHandler) ApplyPolicy(ctx context.Context, request server.ApplyPol
 		}, nil
 	}
 
-	// Convert server.Policy to v1alpha1.Policy
-	v1Alpha1Policy := policyServerToV1Alpha1(*request.Body)
+	// Convert server PolicyUpdate (PATCH body) to api/v1alpha1 PolicyUpdate
+	patch := policyUpdateServerToV1Alpha1(*request.Body)
 
-	// Call service to update policy
-	updated, err := h.service.UpdatePolicy(ctx, request.PolicyId, v1Alpha1Policy)
+	// Call service to update policy (merge patch onto existing)
+	updated, err := h.service.UpdatePolicy(ctx, request.PolicyId, &patch)
 	if err != nil {
-		return h.handleApplyPolicyError(err, request), nil
+		return h.handleUpdatePolicyError(err, request), nil
 	}
 
-	return server.ApplyPolicy200JSONResponse(policyV1Alpha1ToServer(*updated)), nil
+	return server.UpdatePolicy200JSONResponse(policyV1Alpha1ToServer(*updated)), nil
 }
 
 // (DELETE /policies/{policyId})

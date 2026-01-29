@@ -24,7 +24,7 @@ type PolicyService interface {
 	CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
 	GetPolicy(ctx context.Context, id string) (*v1alpha1.Policy, error)
 	ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
-	UpdatePolicy(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error)
+	UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error)
 	DeletePolicy(ctx context.Context, id string) error
 }
 
@@ -202,18 +202,46 @@ func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, or
 	return response, nil
 }
 
-// UpdatePolicy updates an existing policy (full replacement).
-func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error) {
-	// Validate RegoCode is present and non-empty
-	if strings.TrimSpace(policy.RegoCode) == "" {
+// MergePolicyUpdateOntoPolicy merges a PATCH body onto an existing policy per RFC 7396.
+// Only non-nil fields in patch are applied. policy_type is immutable and not in PolicyUpdate.
+func MergePolicyUpdateOntoPolicy(patch *v1alpha1.PolicyUpdate, existing v1alpha1.Policy) v1alpha1.Policy {
+	merged := existing
+	if patch == nil {
+		return merged
+	}
+	if patch.DisplayName != nil {
+		merged.DisplayName = *patch.DisplayName
+	}
+	if patch.Description != nil {
+		merged.Description = patch.Description
+	}
+	if patch.Enabled != nil {
+		merged.Enabled = patch.Enabled
+	}
+	if patch.LabelSelector != nil {
+		merged.LabelSelector = patch.LabelSelector
+	}
+	if patch.Priority != nil {
+		merged.Priority = patch.Priority
+	}
+	if patch.RegoCode != nil {
+		merged.RegoCode = *patch.RegoCode
+	}
+	return merged
+}
+
+// UpdatePolicy updates an existing policy using partial merge (PATCH).
+func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error) {
+	// Validate RegoCode when present in patch (RegoCode is not stored in DB, so omit = leave as-is)
+	if patch != nil && patch.RegoCode != nil && strings.TrimSpace(*patch.RegoCode) == "" {
 		return nil, NewInvalidArgumentError(
-			"RegoCode is required",
-			"The rego_code field must be present and non-empty",
+			"RegoCode cannot be empty",
+			"When rego_code is provided in the patch it must be non-empty",
 		)
 	}
 
-	// Get existing policy to check immutable fields
-	existing, err := s.store.Policy().Get(ctx, id)
+	// Get existing policy
+	existingDB, err := s.store.Policy().Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
 			return nil, NewNotFoundError(
@@ -223,19 +251,13 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, policy 
 		}
 		return nil, NewInternalError("Failed to get existing policy", err.Error(), err)
 	}
+	existing := DBToAPIModel(existingDB)
 
-	// Verify PolicyType hasn't changed (immutable field)
-	if string(policy.PolicyType) != existing.PolicyType {
-		return nil, NewFailedPreconditionError(
-			"Cannot change policy_type",
-			fmt.Sprintf("The policy_type field is immutable. Existing value: '%s', requested value: '%s'", existing.PolicyType, policy.PolicyType),
-		)
-	}
+	// Merge patch onto existing (policy_type in patch is ignored)
+	merged := MergePolicyUpdateOntoPolicy(patch, existing)
 
-	// Convert API model to DB model
-	dbPolicy := APIToDBModel(policy, id)
-
-	// Update policy in store
+	// Convert API model to DB model and update store
+	dbPolicy := APIToDBModel(merged, id)
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
 		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {

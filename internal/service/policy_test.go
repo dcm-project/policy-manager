@@ -444,7 +444,7 @@ var _ = Describe("PolicyService", func() {
 	})
 
 	Describe("UpdatePolicy", func() {
-		It("should update mutable fields", func() {
+		It("should update mutable fields (partial patch)", func() {
 			// Create a policy
 			clientID := "update-test"
 			enabled := true
@@ -459,20 +459,19 @@ var _ = Describe("PolicyService", func() {
 			created, err := policyService.CreatePolicy(ctx, policy, &clientID)
 			Expect(err).To(BeNil())
 
-			// Update the policy
+			// PATCH: only update display_name, enabled, priority, description
 			newEnabled := false
 			newPriority := int32(200)
 			newDescription := "Updated description"
-			updatePolicy := v1alpha1.Policy{
-				DisplayName: "Updated Name",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package updated",
+			displayName := "Updated Name"
+			patch := &v1alpha1.PolicyUpdate{
+				DisplayName: &displayName,
 				Enabled:     &newEnabled,
 				Priority:    &newPriority,
 				Description: &newDescription,
 			}
 
-			updated, err := policyService.UpdatePolicy(ctx, "update-test", updatePolicy)
+			updated, err := policyService.UpdatePolicy(ctx, "update-test", patch)
 
 			Expect(err).To(BeNil())
 			Expect(updated.DisplayName).To(Equal("Updated Name"))
@@ -484,7 +483,7 @@ var _ = Describe("PolicyService", func() {
 			Expect(updated.UpdateTime).NotTo(Equal(created.UpdateTime)) // UpdateTime changed
 		})
 
-		It("should validate RegoCode is non-empty", func() {
+		It("should validate RegoCode is non-empty when provided in patch", func() {
 			clientID := "update-rego-test"
 			policy := v1alpha1.Policy{
 				DisplayName: "Test",
@@ -494,14 +493,13 @@ var _ = Describe("PolicyService", func() {
 			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
 			Expect(err).To(BeNil())
 
-			// Try to update with empty RegoCode
-			updatePolicy := v1alpha1.Policy{
-				DisplayName: "Updated",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "",
+			// Try to update with empty RegoCode in patch
+			emptyRego := ""
+			patch := &v1alpha1.PolicyUpdate{
+				RegoCode: &emptyRego,
 			}
 
-			_, err = policyService.UpdatePolicy(ctx, "update-rego-test", updatePolicy)
+			_, err = policyService.UpdatePolicy(ctx, "update-rego-test", patch)
 
 			Expect(err).NotTo(BeNil())
 			serviceErr, ok := err.(*service.ServiceError)
@@ -509,40 +507,13 @@ var _ = Describe("PolicyService", func() {
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
 		})
 
-		It("should reject changes to policy_type (immutable)", func() {
-			clientID := "immutable-test"
-			policy := v1alpha1.Policy{
-				DisplayName: "Test",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
-			}
-			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
-			Expect(err).To(BeNil())
-
-			// Try to change policy_type
-			updatePolicy := v1alpha1.Policy{
-				DisplayName: "Updated",
-				PolicyType:  v1alpha1.USER, // Changed!
-				RegoCode:    "package test",
-			}
-
-			_, err = policyService.UpdatePolicy(ctx, "immutable-test", updatePolicy)
-
-			Expect(err).NotTo(BeNil())
-			serviceErr, ok := err.(*service.ServiceError)
-			Expect(ok).To(BeTrue())
-			Expect(serviceErr.Type).To(Equal(service.ErrorTypeFailedPrecondition))
-			Expect(serviceErr.Message).To(ContainSubstring("Cannot change policy_type"))
-		})
-
 		It("should return NotFound error for non-existent policy", func() {
-			policy := v1alpha1.Policy{
-				DisplayName: "Test",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    "package test",
+			displayName := "Test"
+			patch := &v1alpha1.PolicyUpdate{
+				DisplayName: &displayName,
 			}
 
-			_, err := policyService.UpdatePolicy(ctx, "non-existent", policy)
+			_, err := policyService.UpdatePolicy(ctx, "non-existent", patch)
 
 			Expect(err).NotTo(BeNil())
 			serviceErr, ok := err.(*service.ServiceError)
@@ -571,12 +542,12 @@ var _ = Describe("PolicyService", func() {
 			}, &idB)
 			Expect(err).To(BeNil())
 
-			_, err = policyService.UpdatePolicy(ctx, "update-dn-b", v1alpha1.Policy{
-				DisplayName: "Name A",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+			displayNameA := "Name A"
+			patch := &v1alpha1.PolicyUpdate{
+				DisplayName: &displayNameA,
 				Priority:    &prioB,
-			})
+			}
+			_, err = policyService.UpdatePolicy(ctx, "update-dn-b", patch)
 			Expect(err).NotTo(BeNil())
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
@@ -605,12 +576,12 @@ var _ = Describe("PolicyService", func() {
 			}, &idB)
 			Expect(err).To(BeNil())
 
-			_, err = policyService.UpdatePolicy(ctx, "update-prio-b", v1alpha1.Policy{
-				DisplayName: "Policy B",
-				PolicyType:  v1alpha1.GLOBAL,
-				RegoCode:    regoCode,
+			displayNameB := "Policy B"
+			patch := &v1alpha1.PolicyUpdate{
+				DisplayName: &displayNameB,
 				Priority:    &prio200,
-			})
+			}
+			_, err = policyService.UpdatePolicy(ctx, "update-prio-b", patch)
 			Expect(err).NotTo(BeNil())
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())

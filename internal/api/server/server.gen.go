@@ -180,6 +180,33 @@ type Policy struct {
 // Policies are evaluated in hierarchical order: Global -> User
 type PolicyPolicyType string
 
+// PolicyUpdate Partial policy representation for PATCH (update) requests.
+//
+// Used with Content-Type `application/merge-patch+json` per RFC 7396.
+// Only include fields you want to change; omitted fields are left unchanged.
+// Use `null` to clear optional fields (e.g. description). Read-only and
+// immutable fields (path, id, create_time, update_time) are server-managed;
+// policy_type is immutable after creation and cannot be updated.
+type PolicyUpdate struct {
+	// Description Optional description. Use null to clear.
+	Description *string `json:"description"`
+
+	// DisplayName Human-readable name for the policy.
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Enabled Whether the policy is active.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// LabelSelector Key-value pairs to match requests. Use null to clear.
+	LabelSelector *map[string]string `json:"label_selector,omitempty"`
+
+	// Priority Priority 1-1000; lower is higher priority.
+	Priority *int32 `json:"priority,omitempty"`
+
+	// RegoCode OPA Rego policy code. Validated when provided.
+	RegoCode *string `json:"rego_code,omitempty"`
+}
+
 // PolicyIdPath defines model for PolicyIdPath.
 type PolicyIdPath = string
 
@@ -270,8 +297,8 @@ type CreatePolicyParams struct {
 // CreatePolicyJSONRequestBody defines body for CreatePolicy for application/json ContentType.
 type CreatePolicyJSONRequestBody = Policy
 
-// ApplyPolicyJSONRequestBody defines body for ApplyPolicy for application/json ContentType.
-type ApplyPolicyJSONRequestBody = Policy
+// UpdatePolicyApplicationMergePatchPlusJSONRequestBody defines body for UpdatePolicy for application/merge-patch+json ContentType.
+type UpdatePolicyApplicationMergePatchPlusJSONRequestBody = PolicyUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -291,8 +318,8 @@ type ServerInterface interface {
 	// (GET /policies/{policyId})
 	GetPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
 	// Update a policy
-	// (PUT /policies/{policyId})
-	ApplyPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
+	// (PATCH /policies/{policyId})
+	UpdatePolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -330,8 +357,8 @@ func (_ Unimplemented) GetPolicy(w http.ResponseWriter, r *http.Request, policyI
 }
 
 // Update a policy
-// (PUT /policies/{policyId})
-func (_ Unimplemented) ApplyPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
+// (PATCH /policies/{policyId})
+func (_ Unimplemented) UpdatePolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -486,8 +513,8 @@ func (siw *ServerInterfaceWrapper) GetPolicy(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
-// ApplyPolicy operation middleware
-func (siw *ServerInterfaceWrapper) ApplyPolicy(w http.ResponseWriter, r *http.Request) {
+// UpdatePolicy operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePolicy(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -501,7 +528,7 @@ func (siw *ServerInterfaceWrapper) ApplyPolicy(w http.ResponseWriter, r *http.Re
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ApplyPolicy(w, r, policyId)
+		siw.Handler.UpdatePolicy(w, r, policyId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -640,7 +667,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/policies/{policyId}", wrapper.GetPolicy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/policies/{policyId}", wrapper.ApplyPolicy)
+		r.Patch(options.BaseURL+"/policies/{policyId}", wrapper.UpdatePolicy)
 	})
 
 	return r
@@ -922,74 +949,74 @@ func (response GetPolicy500JSONResponse) VisitGetPolicyResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicyRequestObject struct {
+type UpdatePolicyRequestObject struct {
 	PolicyId PolicyIdPath `json:"policyId"`
-	Body     *ApplyPolicyJSONRequestBody
+	Body     *UpdatePolicyApplicationMergePatchPlusJSONRequestBody
 }
 
-type ApplyPolicyResponseObject interface {
-	VisitApplyPolicyResponse(w http.ResponseWriter) error
+type UpdatePolicyResponseObject interface {
+	VisitUpdatePolicyResponse(w http.ResponseWriter) error
 }
 
-type ApplyPolicy200JSONResponse Policy
+type UpdatePolicy200JSONResponse Policy
 
-func (response ApplyPolicy200JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy200JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy400JSONResponse struct{ BadRequestJSONResponse }
+type UpdatePolicy400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response ApplyPolicy400JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy400JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy401JSONResponse struct{ UnauthorizedJSONResponse }
+type UpdatePolicy401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ApplyPolicy401JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy401JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy403JSONResponse struct{ ForbiddenJSONResponse }
+type UpdatePolicy403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ApplyPolicy403JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy403JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy404JSONResponse struct{ NotFoundJSONResponse }
+type UpdatePolicy404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response ApplyPolicy404JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy404JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy409JSONResponse struct{ AlreadyExistsJSONResponse }
+type UpdatePolicy409JSONResponse struct{ AlreadyExistsJSONResponse }
 
-func (response ApplyPolicy409JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy409JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ApplyPolicy500JSONResponse struct {
+type UpdatePolicy500JSONResponse struct {
 	InternalServerErrorJSONResponse
 }
 
-func (response ApplyPolicy500JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+func (response UpdatePolicy500JSONResponse) VisitUpdatePolicyResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1014,8 +1041,8 @@ type StrictServerInterface interface {
 	// (GET /policies/{policyId})
 	GetPolicy(ctx context.Context, request GetPolicyRequestObject) (GetPolicyResponseObject, error)
 	// Update a policy
-	// (PUT /policies/{policyId})
-	ApplyPolicy(ctx context.Context, request ApplyPolicyRequestObject) (ApplyPolicyResponseObject, error)
+	// (PATCH /policies/{policyId})
+	UpdatePolicy(ctx context.Context, request UpdatePolicyRequestObject) (UpdatePolicyResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1182,13 +1209,13 @@ func (sh *strictHandler) GetPolicy(w http.ResponseWriter, r *http.Request, polic
 	}
 }
 
-// ApplyPolicy operation middleware
-func (sh *strictHandler) ApplyPolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
-	var request ApplyPolicyRequestObject
+// UpdatePolicy operation middleware
+func (sh *strictHandler) UpdatePolicy(w http.ResponseWriter, r *http.Request, policyId PolicyIdPath) {
+	var request UpdatePolicyRequestObject
 
 	request.PolicyId = policyId
 
-	var body ApplyPolicyJSONRequestBody
+	var body UpdatePolicyApplicationMergePatchPlusJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -1196,18 +1223,18 @@ func (sh *strictHandler) ApplyPolicy(w http.ResponseWriter, r *http.Request, pol
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ApplyPolicy(ctx, request.(ApplyPolicyRequestObject))
+		return sh.ssi.UpdatePolicy(ctx, request.(UpdatePolicyRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ApplyPolicy")
+		handler = middleware(handler, "UpdatePolicy")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ApplyPolicyResponseObject); ok {
-		if err := validResponse.VisitApplyPolicyResponse(w); err != nil {
+	} else if validResponse, ok := response.(UpdatePolicyResponseObject); ok {
+		if err := validResponse.VisitUpdatePolicyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -15,7 +15,7 @@ type MockPolicyService struct {
 	CreatePolicyFn func(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
 	GetPolicyFn    func(ctx context.Context, id string) (*v1alpha1.Policy, error)
 	ListPoliciesFn func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
-	UpdatePolicyFn func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error)
+	UpdatePolicyFn func(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error)
 	DeletePolicyFn func(ctx context.Context, id string) error
 }
 
@@ -40,9 +40,9 @@ func (m *MockPolicyService) ListPolicies(ctx context.Context, filter *string, or
 	return nil, nil
 }
 
-func (m *MockPolicyService) UpdatePolicy(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error) {
+func (m *MockPolicyService) UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error) {
 	if m.UpdatePolicyFn != nil {
-		return m.UpdatePolicyFn(ctx, id, policy)
+		return m.UpdatePolicyFn(ctx, id, patch)
 	}
 	return nil, nil
 }
@@ -312,7 +312,7 @@ var _ = Describe("PolicyHandler", func() {
 		})
 	})
 
-	Describe("ApplyPolicy", func() {
+	Describe("UpdatePolicy", func() {
 		It("should return 200 on successful update", func() {
 			ctx := context.Background()
 			policyID := "test-policy"
@@ -320,32 +320,37 @@ var _ = Describe("PolicyHandler", func() {
 			enabled := false
 			priority := int32(200)
 
-			mockService.UpdatePolicyFn = func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error) {
+			mockService.UpdatePolicyFn = func(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error) {
+				displayName := "Updated Policy"
+				if patch != nil && patch.DisplayName != nil {
+					displayName = *patch.DisplayName
+				}
 				return &v1alpha1.Policy{
 					Id:          &policyID,
 					Path:        &path,
-					DisplayName: policy.DisplayName,
-					PolicyType:  policy.PolicyType,
+					DisplayName: displayName,
+					PolicyType:  v1alpha1.GLOBAL,
 					Enabled:     &enabled,
 					Priority:    &priority,
 					RegoCode:    "",
 				}, nil
 			}
 
-			body := server.Policy{
-				DisplayName: "Updated Policy",
-				PolicyType:  server.GLOBAL,
-				RegoCode:    "package updated",
+			displayName := "Updated Policy"
+			regoCode := "package updated"
+			body := server.PolicyUpdate{
+				DisplayName: &displayName,
+				RegoCode:    &regoCode,
 			}
 
-			response, err := handler.ApplyPolicy(ctx, server.ApplyPolicyRequestObject{
+			response, err := handler.UpdatePolicy(ctx, server.UpdatePolicyRequestObject{
 				PolicyId: "test-policy",
 				Body:     &body,
 			})
 
 			Expect(err).NotTo(HaveOccurred())
-			updateResponse, ok := response.(server.ApplyPolicy200JSONResponse)
-			Expect(ok).To(BeTrue(), "response should be ApplyPolicy200JSONResponse")
+			updateResponse, ok := response.(server.UpdatePolicy200JSONResponse)
+			Expect(ok).To(BeTrue(), "response should be UpdatePolicy200JSONResponse")
 			Expect(*updateResponse.Id).To(Equal("test-policy"))
 			Expect(updateResponse.DisplayName).To(Equal("Updated Policy"))
 		})
@@ -353,60 +358,38 @@ var _ = Describe("PolicyHandler", func() {
 		It("should return 400 when body is nil", func() {
 			ctx := context.Background()
 
-			response, err := handler.ApplyPolicy(ctx, server.ApplyPolicyRequestObject{
+			response, err := handler.UpdatePolicy(ctx, server.UpdatePolicyRequestObject{
 				PolicyId: "test-policy",
 				Body:     nil,
 			})
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := response.(server.ApplyPolicy400JSONResponse)
-			Expect(ok).To(BeTrue(), "response should be ApplyPolicy400JSONResponse")
-		})
-
-		It("should return 400 for failed precondition (immutable field change)", func() {
-			ctx := context.Background()
-
-			mockService.UpdatePolicyFn = func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error) {
-				return nil, service.NewFailedPreconditionError("Cannot change policy_type", "Field is immutable")
-			}
-
-			body := server.Policy{
-				DisplayName: "Updated Policy",
-				PolicyType:  server.USER, // Trying to change policy_type
-				RegoCode:    "package test",
-			}
-
-			response, err := handler.ApplyPolicy(ctx, server.ApplyPolicyRequestObject{
-				PolicyId: "test-policy",
-				Body:     &body,
-			})
-
-			Expect(err).NotTo(HaveOccurred())
-			_, ok := response.(server.ApplyPolicy400JSONResponse)
-			Expect(ok).To(BeTrue(), "response should be ApplyPolicy400JSONResponse")
+			_, ok := response.(server.UpdatePolicy400JSONResponse)
+			Expect(ok).To(BeTrue(), "response should be UpdatePolicy400JSONResponse")
 		})
 
 		It("should return 404 when policy not found", func() {
 			ctx := context.Background()
 
-			mockService.UpdatePolicyFn = func(ctx context.Context, id string, policy v1alpha1.Policy) (*v1alpha1.Policy, error) {
+			mockService.UpdatePolicyFn = func(ctx context.Context, id string, patch *v1alpha1.PolicyUpdate) (*v1alpha1.Policy, error) {
 				return nil, service.NewNotFoundError("Policy not found", "Not found")
 			}
 
-			body := server.Policy{
-				DisplayName: "Updated Policy",
-				PolicyType:  server.GLOBAL,
-				RegoCode:    "package test",
+			displayName := "Updated Policy"
+			regoCode := "package test"
+			body := server.PolicyUpdate{
+				DisplayName: &displayName,
+				RegoCode:    &regoCode,
 			}
 
-			response, err := handler.ApplyPolicy(ctx, server.ApplyPolicyRequestObject{
+			response, err := handler.UpdatePolicy(ctx, server.UpdatePolicyRequestObject{
 				PolicyId: "non-existent",
 				Body:     &body,
 			})
 
 			Expect(err).NotTo(HaveOccurred())
-			_, ok := response.(server.ApplyPolicy404JSONResponse)
-			Expect(ok).To(BeTrue(), "response should be ApplyPolicy404JSONResponse")
+			_, ok := response.(server.UpdatePolicy404JSONResponse)
+			Expect(ok).To(BeTrue(), "response should be UpdatePolicy404JSONResponse")
 		})
 	})
 

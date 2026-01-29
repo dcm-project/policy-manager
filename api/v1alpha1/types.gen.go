@@ -172,6 +172,33 @@ type Policy struct {
 // Policies are evaluated in hierarchical order: Global -> User
 type PolicyPolicyType string
 
+// PolicyUpdate Partial policy representation for PATCH (update) requests.
+//
+// Used with Content-Type `application/merge-patch+json` per RFC 7396.
+// Only include fields you want to change; omitted fields are left unchanged.
+// Use `null` to clear optional fields (e.g. description). Read-only and
+// immutable fields (path, id, create_time, update_time) are server-managed;
+// policy_type is immutable after creation and cannot be updated.
+type PolicyUpdate struct {
+	// Description Optional description. Use null to clear.
+	Description *string `json:"description"`
+
+	// DisplayName Human-readable name for the policy.
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Enabled Whether the policy is active.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// LabelSelector Key-value pairs to match requests. Use null to clear.
+	LabelSelector *map[string]string `json:"label_selector,omitempty"`
+
+	// Priority Priority 1-1000; lower is higher priority.
+	Priority *int32 `json:"priority,omitempty"`
+
+	// RegoCode OPA Rego policy code. Validated when provided.
+	RegoCode *string `json:"rego_code,omitempty"`
+}
+
 // PolicyIdPath defines model for PolicyIdPath.
 type PolicyIdPath = string
 
@@ -262,5 +289,5 @@ type CreatePolicyParams struct {
 // CreatePolicyJSONRequestBody defines body for CreatePolicy for application/json ContentType.
 type CreatePolicyJSONRequestBody = Policy
 
-// ApplyPolicyJSONRequestBody defines body for ApplyPolicy for application/json ContentType.
-type ApplyPolicyJSONRequestBody = Policy
+// UpdatePolicyApplicationMergePatchPlusJSONRequestBody defines body for UpdatePolicy for application/merge-patch+json ContentType.
+type UpdatePolicyApplicationMergePatchPlusJSONRequestBody = PolicyUpdate
