@@ -976,6 +976,15 @@ func (response ApplyPolicy404JSONResponse) VisitApplyPolicyResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ApplyPolicy409JSONResponse struct{ AlreadyExistsJSONResponse }
+
+func (response ApplyPolicy409JSONResponse) VisitApplyPolicyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ApplyPolicy500JSONResponse struct {
 	InternalServerErrorJSONResponse
 }

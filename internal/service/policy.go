@@ -74,6 +74,19 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 	// Create policy in store
 	created, err := s.store.Policy().Create(ctx, dbPolicy)
 	if err != nil {
+		// Check for duplicate display_name+policy_type or priority+policy_type
+		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
+			return nil, NewAlreadyExistsError(
+				"A policy with this display_name and policy_type already exists",
+				"The combination of display_name and policy_type must be unique",
+			)
+		}
+		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
+			return nil, NewAlreadyExistsError(
+				"A policy with this priority and policy_type already exists",
+				"The combination of priority and policy_type must be unique",
+			)
+		}
 		// Check for duplicate ID error (GORM unique constraint violation)
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
 			strings.Contains(err.Error(), "duplicate key") {
@@ -225,6 +238,18 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, policy 
 	// Update policy in store
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
+		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
+			return nil, NewAlreadyExistsError(
+				"A policy with this display_name and policy_type already exists",
+				"The combination of display_name and policy_type must be unique",
+			)
+		}
+		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
+			return nil, NewAlreadyExistsError(
+				"A policy with this priority and policy_type already exists",
+				"The combination of priority and policy_type must be unique",
+			)
+		}
 		if errors.Is(err, store.ErrPolicyNotFound) {
 			return nil, NewNotFoundError(
 				"Policy not found",

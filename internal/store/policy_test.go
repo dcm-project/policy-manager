@@ -56,6 +56,34 @@ var _ = Describe("Policy Store", func() {
 			_, err = policyStore.Create(ctx, p2)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("returns ErrDisplayNamePolicyTypeTaken when creating two policies with same display_name and policy_type", func() {
+			p1 := newPolicy("policy-a")
+			p1.DisplayName = "Same Name"
+			p1.PolicyType = "GLOBAL"
+			_, err := policyStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2 := newPolicy("policy-b")
+			p2.DisplayName = "Same Name"
+			p2.PolicyType = "GLOBAL"
+			_, err = policyStore.Create(ctx, p2)
+			Expect(err).To(Equal(store.ErrDisplayNamePolicyTypeTaken))
+		})
+
+		It("returns ErrPriorityPolicyTypeTaken when creating two policies with same priority and policy_type", func() {
+			p1 := newPolicy("policy-p1")
+			p1.Priority = 100
+			p1.PolicyType = "GLOBAL"
+			_, err := policyStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2 := newPolicy("policy-p2")
+			p2.Priority = 100
+			p2.PolicyType = "GLOBAL"
+			_, err = policyStore.Create(ctx, p2)
+			Expect(err).To(Equal(store.ErrPriorityPolicyTypeTaken))
+		})
 	})
 
 	Describe("Get", func() {
@@ -318,6 +346,42 @@ var _ = Describe("Policy Store", func() {
 
 			Expect(err).To(Equal(store.ErrPolicyNotFound))
 		})
+
+		It("returns ErrDisplayNamePolicyTypeTaken when updating to another policy's display_name and policy_type", func() {
+			p1 := newPolicy("update-display-a")
+			p1.DisplayName = "Name A"
+			p1.PolicyType = "GLOBAL"
+			_, err := policyStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2 := newPolicy("update-display-b")
+			p2.DisplayName = "Name B"
+			p2.PolicyType = "GLOBAL"
+			_, err = policyStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2.DisplayName = "Name A"
+			_, err = policyStore.Update(ctx, p2)
+			Expect(err).To(Equal(store.ErrDisplayNamePolicyTypeTaken))
+		})
+
+		It("returns ErrPriorityPolicyTypeTaken when updating to another policy's priority and policy_type", func() {
+			p1 := newPolicy("update-prio-a")
+			p1.Priority = 200
+			p1.PolicyType = "GLOBAL"
+			_, err := policyStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2 := newPolicy("update-prio-b")
+			p2.Priority = 300
+			p2.PolicyType = "GLOBAL"
+			_, err = policyStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2.Priority = 200
+			_, err = policyStore.Update(ctx, p2)
+			Expect(err).To(Equal(store.ErrPriorityPolicyTypeTaken))
+		})
 	})
 })
 
@@ -327,13 +391,19 @@ func newPolicy(id string) model.Policy {
 	for i, c := range id {
 		if c == '-' {
 			displayName += " "
-		} else if i == 0 || id[i-1] == '-' {
+		} else if i == 0 || (i > 0 && id[i-1] == '-') {
 			displayName += string(c - 32) // Convert to uppercase
 		} else {
 			displayName += string(c)
 		}
 	}
 	displayName += " Policy"
+
+	// Use priority derived from id so multiple policies in the same test don't violate (priority, policy_type) uniqueness
+	priority := int32(500)
+	for _, c := range id {
+		priority += int32(c)
+	}
 
 	return model.Policy{
 		ID:          id,
@@ -343,7 +413,7 @@ func newPolicy(id string) model.Policy {
 		LabelSelector: map[string]string{
 			"environment": "test",
 		},
-		Priority: 500,
+		Priority: priority,
 		Enabled:  true,
 	}
 }

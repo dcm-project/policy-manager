@@ -154,6 +154,15 @@ func (h *PolicyHandler) handleApplyPolicyError(err error, request server.ApplyPo
 				strPtr(serviceErr.Detail),
 			)),
 		}
+	case service.ErrorTypeAlreadyExists:
+		return server.ApplyPolicy409JSONResponse{
+			AlreadyExistsJSONResponse: alreadyExistsResponse(buildErrorResponse(
+				409,
+				v1alpha1.ALREADYEXISTS,
+				serviceErr.Message,
+				strPtr(serviceErr.Detail),
+			)),
+		}
 	default:
 		return server.ApplyPolicy500JSONResponse{
 			InternalServerErrorJSONResponse: internalErrorResponse(buildErrorResponse(

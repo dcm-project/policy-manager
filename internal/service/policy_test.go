@@ -16,10 +16,10 @@ import (
 
 var _ = Describe("PolicyService", func() {
 	var (
-		db             *gorm.DB
-		dataStore      store.Store
-		policyService  service.PolicyService
-		ctx            context.Context
+		db            *gorm.DB
+		dataStore     store.Store
+		policyService service.PolicyService
+		ctx           context.Context
 	)
 
 	BeforeEach(func() {
@@ -59,8 +59,8 @@ var _ = Describe("PolicyService", func() {
 			Expect(*created.Path).To(Equal("policies/my-custom-policy"))
 			Expect(created.DisplayName).To(Equal("Test Policy"))
 			Expect(created.PolicyType).To(Equal(v1alpha1.GLOBAL))
-			Expect(created.RegoCode).To(Equal("")) // Should be empty
-			Expect(*created.Enabled).To(BeTrue())  // Default value
+			Expect(created.RegoCode).To(Equal(""))          // Should be empty
+			Expect(*created.Enabled).To(BeTrue())           // Default value
 			Expect(*created.Priority).To(Equal(int32(500))) // Default value
 		})
 
@@ -150,6 +150,52 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+		})
+
+		It("should return AlreadyExists when creating two policies with same display_name and policy_type", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: "Unique Display Name",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    "package test",
+			}
+			id1 := "policy-dn-1"
+			_, err := policyService.CreatePolicy(ctx, policy, &id1)
+			Expect(err).To(BeNil())
+
+			id2 := "policy-dn-2"
+			_, err = policyService.CreatePolicy(ctx, policy, &id2)
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+			Expect(serviceErr.Message).To(ContainSubstring("display_name and policy_type"))
+		})
+
+		It("should return AlreadyExists when creating two policies with same priority and policy_type", func() {
+			priority := int32(100)
+			policy := v1alpha1.Policy{
+				DisplayName: "Policy One",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    "package test",
+				Priority:    &priority,
+			}
+			id1 := "policy-prio-1"
+			_, err := policyService.CreatePolicy(ctx, policy, &id1)
+			Expect(err).To(BeNil())
+
+			policy2 := v1alpha1.Policy{
+				DisplayName: "Policy Two",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    "package test",
+				Priority:    &priority,
+			}
+			id2 := "policy-prio-2"
+			_, err = policyService.CreatePolicy(ctx, policy2, &id2)
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+			Expect(serviceErr.Message).To(ContainSubstring("priority and policy_type"))
 		})
 
 		It("should use default values for optional fields", func() {
@@ -433,8 +479,8 @@ var _ = Describe("PolicyService", func() {
 			Expect(*updated.Enabled).To(BeFalse())
 			Expect(*updated.Priority).To(Equal(int32(200)))
 			Expect(*updated.Description).To(Equal("Updated description"))
-			Expect(*updated.Id).To(Equal("update-test")) // ID unchanged
-			Expect(updated.CreateTime).To(Equal(created.CreateTime)) // CreateTime unchanged
+			Expect(*updated.Id).To(Equal("update-test"))                // ID unchanged
+			Expect(updated.CreateTime).To(Equal(created.CreateTime))    // CreateTime unchanged
 			Expect(updated.UpdateTime).NotTo(Equal(created.UpdateTime)) // UpdateTime changed
 		})
 
@@ -502,6 +548,74 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeNotFound))
+		})
+
+		It("should return AlreadyExists when updating to another policy's display_name and policy_type", func() {
+			regoCode := "package test"
+			prioA := int32(200)
+			prioB := int32(300)
+			idA := "update-dn-a"
+			idB := "update-dn-b"
+			_, err := policyService.CreatePolicy(ctx, v1alpha1.Policy{
+				DisplayName: "Name A",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prioA,
+			}, &idA)
+			Expect(err).To(BeNil())
+			_, err = policyService.CreatePolicy(ctx, v1alpha1.Policy{
+				DisplayName: "Name B",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prioB,
+			}, &idB)
+			Expect(err).To(BeNil())
+
+			_, err = policyService.UpdatePolicy(ctx, "update-dn-b", v1alpha1.Policy{
+				DisplayName: "Name A",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prioB,
+			})
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+			Expect(serviceErr.Message).To(ContainSubstring("display_name and policy_type"))
+		})
+
+		It("should return AlreadyExists when updating to another policy's priority and policy_type", func() {
+			regoCode := "package test"
+			prio200 := int32(200)
+			prio300 := int32(300)
+			idA := "update-prio-a"
+			idB := "update-prio-b"
+			_, err := policyService.CreatePolicy(ctx, v1alpha1.Policy{
+				DisplayName: "Policy A",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prio200,
+			}, &idA)
+			Expect(err).To(BeNil())
+			_, err = policyService.CreatePolicy(ctx, v1alpha1.Policy{
+				DisplayName: "Policy B",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prio300,
+			}, &idB)
+			Expect(err).To(BeNil())
+
+			_, err = policyService.UpdatePolicy(ctx, "update-prio-b", v1alpha1.Policy{
+				DisplayName: "Policy B",
+				PolicyType:  v1alpha1.GLOBAL,
+				RegoCode:    regoCode,
+				Priority:    &prio200,
+			})
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+			Expect(serviceErr.Message).To(ContainSubstring("priority and policy_type"))
 		})
 	})
 
