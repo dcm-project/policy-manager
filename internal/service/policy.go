@@ -103,7 +103,7 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 	// Create policy in store
 	created, err := s.store.Policy().Create(ctx, dbPolicy)
 	if err != nil {
-		return nil, ProcessPolicyStoreError(err, dbPolicy, "create")
+		return nil, processPolicyStoreError(err, dbPolicy, "create")
 	}
 
 	// Convert back to API model with empty RegoCode and set Path
@@ -201,9 +201,9 @@ func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, or
 	return response, nil
 }
 
-// MergePolicyOntoPolicy merges a PATCH body (Policy) onto an existing policy per RFC 7396.
+// mergePolicyOntoPolicy merges a PATCH body (Policy) onto an existing policy per RFC 7396.
 // Only non-nil mutable fields in patch are applied. Read-only and immutable fields (path, id, policy_type, create_time, update_time) are ignored.
-func MergePolicyOntoPolicy(patch *v1alpha1.Policy, existing v1alpha1.Policy) v1alpha1.Policy {
+func mergePolicyOntoPolicy(patch *v1alpha1.Policy, existing v1alpha1.Policy) v1alpha1.Policy {
 	merged := existing
 	if patch == nil {
 		return merged
@@ -247,13 +247,13 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 		return nil, NewInternalError("Failed to get existing policy", err.Error(), err)
 	}
 	existing := DBToAPIModel(existingDB)
-	merged := MergePolicyOntoPolicy(patch, existing)
+	merged := mergePolicyOntoPolicy(patch, existing)
 
 	// Convert API model to DB model and update store
 	dbPolicy := APIToDBModel(merged, id)
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
-		return nil, ProcessPolicyStoreError(err, dbPolicy, "update")
+		return nil, processPolicyStoreError(err, dbPolicy, "update")
 	}
 
 	// Convert back to API model

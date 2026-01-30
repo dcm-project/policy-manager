@@ -41,7 +41,7 @@ func (e *ServiceError) Unwrap() error {
 	return e.Err
 }
 
-func ProcessPolicyStoreError(err error, dbPolicy model.Policy, operation string) *ServiceError {
+func processPolicyStoreError(err error, dbPolicy model.Policy, operation string) *ServiceError {
 	// Check for duplicate display_name+policy_type or priority+policy_type
 	if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
 		return NewPolicyDisplayNamePolicyTypeTakenError(dbPolicy.DisplayName, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
