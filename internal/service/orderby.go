@@ -19,7 +19,7 @@ var (
 	}
 )
 
-// ParseOrderBy parses an order_by parameter into GORM format.
+// parseOrderBy parses an order_by parameter into GORM format.
 // Supports single and multiple field ordering with asc/desc directions.
 //
 // Supported fields: priority, display_name, create_time
@@ -32,7 +32,7 @@ var (
 // If orderBy is empty, returns the default ordering.
 //
 // Returns an error for invalid fields or directions.
-func ParseOrderBy(orderBy string) (string, error) {
+func parseOrderBy(orderBy string) (string, error) {
 	if orderBy == "" {
 		return DefaultOrderBy, nil
 	}

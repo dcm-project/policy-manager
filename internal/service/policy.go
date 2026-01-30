@@ -134,7 +134,7 @@ func getListOptions(filter *string, orderBy *string, pageToken *string, pageSize
 	var policyFilter *store.PolicyFilter
 	var err error
 	if filter != nil && *filter != "" {
-		policyFilter, err = ParseFilter(*filter)
+		policyFilter, err = parseFilter(*filter)
 		if err != nil {
 			return nil, err // Already a ServiceError
 		}
@@ -145,7 +145,7 @@ func getListOptions(filter *string, orderBy *string, pageToken *string, pageSize
 	if orderBy != nil {
 		orderByStr = *orderBy
 	}
-	orderByStr, err = ParseOrderBy(orderByStr)
+	orderByStr, err = parseOrderBy(orderByStr)
 	if err != nil {
 		return nil, err // Already a ServiceError
 	}

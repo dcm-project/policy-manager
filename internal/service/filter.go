@@ -14,7 +14,7 @@ var (
 	enabledPattern    = regexp.MustCompile(`enabled\s*=\s*(true|false)`)
 )
 
-// ParseFilter parses a CEL filter expression into a PolicyFilter.
+// parseFilter parses a CEL filter expression into a PolicyFilter.
 // Supports filtering by policy_type and enabled fields.
 //
 // Supported expressions:
@@ -26,7 +26,7 @@ var (
 //   - enabled=true AND policy_type='USER'
 //
 // Returns an error for invalid filter expressions.
-func ParseFilter(filterExpr string) (*store.PolicyFilter, error) {
+func parseFilter(filterExpr string) (*store.PolicyFilter, error) {
 	if filterExpr == "" {
 		return nil, nil
 	}
