@@ -1,8 +1,14 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
+	"github.com/dcm-project/policy-manager/internal/store"
+	"github.com/dcm-project/policy-manager/internal/store/model"
+	"gorm.io/gorm"
 )
 
 // ErrorType represents the type of service error
@@ -33,6 +39,25 @@ func (e *ServiceError) Error() string {
 
 func (e *ServiceError) Unwrap() error {
 	return e.Err
+}
+
+func ProcessPolicyStoreError(err error, dbPolicy model.Policy, operation string) *ServiceError {
+	// Check for duplicate display_name+policy_type or priority+policy_type
+	if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
+		return NewPolicyDisplayNamePolicyTypeTakenError(dbPolicy.DisplayName, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
+	}
+	if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
+		return NewPolicyPriorityPolicyTypeTakenError(dbPolicy.Priority, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
+	}
+	// Check for duplicate ID error
+	if errors.Is(err, store.ErrPolicyIDTaken) || strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+		strings.Contains(err.Error(), "duplicate key") {
+		return NewPolicyAlreadyExistsError(dbPolicy.ID)
+	}
+	if errors.Is(err, store.ErrPolicyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+		return NewPolicyNotFoundError(dbPolicy.ID)
+	}
+	return NewInternalError(fmt.Sprintf("Failed to %s policy", operation), err.Error(), err)
 }
 
 // NewInvalidArgumentError creates a new invalid argument error

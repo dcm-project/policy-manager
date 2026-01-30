@@ -10,7 +10,6 @@ import (
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/store"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 var (
@@ -42,30 +41,34 @@ func NewPolicyService(store store.Store) *PolicyServiceImpl {
 	}
 }
 
-// CreatePolicy creates a new policy resource.
-// Required fields (display_name, policy_type, rego_code) are enforced here since the schema has no required.
-func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error) {
+func validatePostInput(policy v1alpha1.Policy) error {
 	if policy.DisplayName == nil || strings.TrimSpace(*policy.DisplayName) == "" {
-		return nil, NewInvalidArgumentError(
+		return NewInvalidArgumentError(
 			"display_name is required",
 			"The display_name field must be present and non-empty",
 		)
 	}
+
 	if policy.PolicyType == nil {
-		return nil, NewInvalidArgumentError(
+		return NewInvalidArgumentError(
 			"policy_type is required",
 			"The policy_type field must be present (GLOBAL or USER)",
 		)
 	}
+
 	if policy.RegoCode == nil || strings.TrimSpace(*policy.RegoCode) == "" {
-		return nil, NewInvalidArgumentError(
+		return NewInvalidArgumentError(
 			"rego_code is required",
 			"The rego_code field must be present and non-empty",
 		)
 	}
 
-	// Determine the policy ID (client-specified or server-generated)
+	return nil
+}
+
+func getPolicyID(clientID *string) (*string, error) {
 	var policyID string
+
 	if clientID != nil && *clientID != "" {
 		policyID = *clientID
 		// Validate ID format (AEP-122 compliant) only for client-specified IDs
@@ -79,26 +82,28 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 		// Generate UUID for server-assigned ID
 		policyID = uuid.New().String()
 	}
+	return &policyID, nil
+}
+
+// CreatePolicy creates a new policy resource.
+// Required fields (display_name, policy_type, rego_code) are enforced here since the schema has no required.
+func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error) {
+	if err := validatePostInput(policy); err != nil {
+		return nil, err
+	}
+
+	policyID, err := getPolicyID(clientID)
+	if err != nil {
+		return nil, err
+	}
 
 	// Convert API model to DB model (strips RegoCode)
-	dbPolicy := APIToDBModel(policy, policyID)
+	dbPolicy := APIToDBModel(policy, *policyID)
 
 	// Create policy in store
 	created, err := s.store.Policy().Create(ctx, dbPolicy)
 	if err != nil {
-		// Check for duplicate display_name+policy_type or priority+policy_type
-		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
-			return nil, NewPolicyDisplayNamePolicyTypeTakenError(dbPolicy.DisplayName, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
-		}
-		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
-			return nil, NewPolicyPriorityPolicyTypeTakenError(dbPolicy.Priority, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
-		}
-		// Check for duplicate ID error
-		if errors.Is(err, store.ErrPolicyIDTaken) || strings.Contains(err.Error(), "UNIQUE constraint failed") ||
-			strings.Contains(err.Error(), "duplicate key") {
-			return nil, NewPolicyAlreadyExistsError(policyID)
-		}
-		return nil, NewInternalError("Failed to create policy", err.Error(), err)
+		return nil, ProcessPolicyStoreError(err, dbPolicy, "create")
 	}
 
 	// Convert back to API model with empty RegoCode and set Path
@@ -248,16 +253,7 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 	dbPolicy := APIToDBModel(merged, id)
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
-		if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
-			return nil, NewPolicyDisplayNamePolicyTypeTakenError(*existing.DisplayName, *existing.PolicyType)
-		}
-		if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
-			return nil, NewPolicyPriorityPolicyTypeTakenError(*existing.Priority, *existing.PolicyType)
-		}
-		if errors.Is(err, store.ErrPolicyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, NewPolicyNotFoundError(id)
-		}
-		return nil, NewInternalError("Failed to update policy", err.Error(), err)
+		return nil, ProcessPolicyStoreError(err, dbPolicy, "update")
 	}
 
 	// Convert back to API model
