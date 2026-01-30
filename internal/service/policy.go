@@ -129,8 +129,7 @@ func (s *PolicyServiceImpl) GetPolicy(ctx context.Context, id string) (*v1alpha1
 	return &apiPolicy, nil
 }
 
-// ListPolicies lists policies with optional filtering, ordering, and pagination.
-func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+func getListOptions(filter *string, orderBy *string, pageToken *string, pageSize *int32) (*store.PolicyListOptions, error) {
 	// Parse filter expression
 	var policyFilter *store.PolicyFilter
 	var err error
@@ -170,11 +169,19 @@ func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, or
 	}
 
 	// Build list options
-	opts := &store.PolicyListOptions{
+	return &store.PolicyListOptions{
 		Filter:    policyFilter,
 		OrderBy:   orderByStr,
 		PageToken: pageToken,
 		PageSize:  pageSizeInt,
+	}, nil
+}
+
+// ListPolicies lists policies with optional filtering, ordering, and pagination.
+func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+	opts, err := getListOptions(filter, orderBy, pageToken, pageSize)
+	if err != nil {
+		return nil, err
 	}
 
 	// List policies from store
