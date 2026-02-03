@@ -12,6 +12,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	MinPriority = 1
+	MaxPriority = 1000
+)
+
 var (
 	// AEP-122 compliant ID format: 1-63 chars, start with lowercase letter,
 	// contain only lowercase letters, numbers, and hyphens, end with letter or number
@@ -63,6 +68,10 @@ func validatePostInput(policy v1alpha1.Policy) error {
 		)
 	}
 
+	if err := validatePriority(policy.Priority); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -83,6 +92,16 @@ func getPolicyID(clientID *string) (*string, error) {
 		policyID = uuid.New().String()
 	}
 	return &policyID, nil
+}
+
+func validatePriority(priority *int32) error {
+	if priority != nil && (*priority < MinPriority || *priority > MaxPriority) {
+		return NewInvalidArgumentError(
+			"priority must be between 1 and 1000",
+			"The priority field must be a value between 1 and 1000",
+		)
+	}
+	return nil
 }
 
 // CreatePolicy creates a new policy resource.
@@ -237,13 +256,27 @@ func mergePolicyOntoPolicy(patch *v1alpha1.Policy, existing v1alpha1.Policy) v1a
 	return merged
 }
 
-// UpdatePolicy updates an existing policy using partial merge (PATCH).
-func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.Policy) (*v1alpha1.Policy, error) {
-	if patch != nil && patch.RegoCode != nil && strings.TrimSpace(*patch.RegoCode) == "" {
-		return nil, NewInvalidArgumentError(
+func validatePatchInput(patch *v1alpha1.Policy) error {
+	if patch == nil {
+		return nil
+	}
+	if patch.RegoCode != nil && strings.TrimSpace(*patch.RegoCode) == "" {
+		return NewInvalidArgumentError(
 			"rego_code cannot be empty",
 			"When rego_code is provided in the patch it must be non-empty",
 		)
+	}
+	if err := validatePriority(patch.Priority); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdatePolicy updates an existing policy using partial merge (PATCH).
+func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.Policy) (*v1alpha1.Policy, error) {
+	if err := validatePatchInput(patch); err != nil {
+		return nil, err
 	}
 
 	existingDB, err := s.store.Policy().Get(ctx, id)
