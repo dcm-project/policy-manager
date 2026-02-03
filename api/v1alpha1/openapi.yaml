@@ -11,7 +11,7 @@ info:
     - Full CRUD operations for policy management
     - Support for client-specified and server-generated IDs
     - Flexible filtering and pagination
-    - Full resource replacement updates
+    - Partial updates (PATCH / merge)
     - AEP-compliant error handling
 
   version: v1alpha1
@@ -223,35 +223,37 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-    put:
+    patch:
       tags:
         - Policies
       summary: Update a policy
       description: |
-        Updates an existing policy using full resource replacement.
+        Updates an existing policy using partial update (merge).
 
-        This method implements AEP-134 Update standard method, but uses PUT
-        instead of PATCH for full resource replacement.
+        This method implements AEP-134 Update standard method. It uses PATCH
+        with JSON Merge Patch per RFC 7396. Only provided fields are updated;
+        omitted fields are left unchanged. Use `null` to clear optional fields.
 
-        ## Full Replacement
-        All mutable fields must be provided in the request. The server will
-        replace the entire resource with the provided data.
+        ## Partial Update (Merge)
+        Send only the fields you want to change. The server merges the patch
+        onto the existing resource. Content-Type must be
+        `application/merge-patch+json`.
 
         ## Immutable Fields
-        The following fields cannot be updated:
+        The following fields cannot be updated (ignored if sent):
         - path
         - id
         - policy_type (cannot be changed after creation)
         - create_time
         - update_time
 
-      operationId: applyPolicy
+      operationId: updatePolicy
       parameters:
         - $ref: '#/components/parameters/PolicyIdPath'
       requestBody:
         required: true
         content:
-          application/json:
+          application/merge-patch+json:
             schema:
               $ref: '#/components/schemas/Policy'
       responses:
@@ -269,6 +271,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AlreadyExists'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -328,10 +332,9 @@ components:
         to different levels (GLOBAL or USER). They are matched against
         requests using label selectors and evaluated in priority order.
 
-      required:
-        - display_name
-        - policy_type
-        - rego_code
+        Used for both create (POST) and update (PATCH). On create, display_name,
+        policy_type, and rego_code are required (enforced by the service). On
+        update, only fields present in the request body are merged (RFC 7396).
       properties:
         path:
           type: string

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/dcm-project/policy-manager/internal/store/model"
 	"gorm.io/gorm"
@@ -12,8 +13,10 @@ import (
 )
 
 var (
-	ErrPolicyNotFound = errors.New("policy not found")
-	ErrPolicyIDTaken  = errors.New("policy ID already taken")
+	ErrPolicyNotFound             = errors.New("policy not found")
+	ErrPolicyIDTaken              = errors.New("policy ID already taken")
+	ErrDisplayNamePolicyTypeTaken = errors.New("display_name and policy_type combination already taken")
+	ErrPriorityPolicyTypeTaken    = errors.New("priority and policy_type combination already taken")
 )
 
 // PolicyFilter contains optional fields for filtering policy queries.
@@ -90,12 +93,12 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*Polic
 		if opts.OrderBy != "" {
 			query = query.Order(opts.OrderBy)
 		} else {
-			// Default order by priority ascending
-			query = query.Order("priority ASC")
+			// Default order by policy_type, priority, id ascending
+			query = query.Order("policy_type ASC, priority ASC, id ASC")
 		}
 	} else {
 		// Default order when no options provided
-		query = query.Order("priority ASC")
+		query = query.Order("policy_type ASC, priority ASC, id ASC")
 	}
 
 	// Query with limit+1 to detect if there are more results
@@ -121,9 +124,36 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*Polic
 	return result, nil
 }
 
+// mapUniqueConstraintError maps a DB unique constraint violation to a store sentinel error.
+// It checks for gorm.ErrDuplicatedKey and then the constraint/index name in the error message
+// (Postgres includes constraint name; SQLite may include column names like "priority" or "display_name").
+func mapUniqueConstraintError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrDuplicatedKey) {
+		// Raw driver error (e.g. tests without TranslateError)
+		if !strings.Contains(strings.ToLower(err.Error()), "unique") &&
+			!strings.Contains(err.Error(), "duplicate key") {
+			return err
+		}
+	}
+	msg := err.Error()
+	// Prefer index/constraint name; fallback to column names for SQLite (check display_name before priority to avoid misclassification)
+	if strings.Contains(msg, "idx_display_name_policy_type") ||
+		(strings.Contains(msg, "display_name") && strings.Contains(msg, "policy_type")) {
+		return ErrDisplayNamePolicyTypeTaken
+	}
+	if strings.Contains(msg, "idx_priority_policy_type") ||
+		(strings.Contains(msg, "priority") && strings.Contains(msg, "policy_type")) {
+		return ErrPriorityPolicyTypeTaken
+	}
+	return err
+}
+
 func (s *PolicyStore) Create(ctx context.Context, policy model.Policy) (*model.Policy, error) {
 	if err := s.db.WithContext(ctx).Clauses(clause.Returning{}).Select("*").Create(&policy).Error; err != nil {
-		return nil, err
+		return nil, mapUniqueConstraintError(err)
 	}
 	return &policy, nil
 }
@@ -140,9 +170,14 @@ func (s *PolicyStore) Delete(ctx context.Context, id string) error {
 }
 
 func (s *PolicyStore) Update(ctx context.Context, policy model.Policy) (*model.Policy, error) {
-	result := s.db.WithContext(ctx).Model(&policy).Clauses(clause.Returning{}).Updates(&policy)
+	// Use Select to update all mutable fields including zero values
+	// Immutable fields (id, policy_type, create_time) are not updated
+	result := s.db.WithContext(ctx).Model(&policy).
+		Select("display_name", "description", "label_selector", "priority", "enabled").
+		Clauses(clause.Returning{}).
+		Updates(&policy)
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, mapUniqueConstraintError(result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return nil, ErrPolicyNotFound

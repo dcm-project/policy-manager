@@ -85,6 +85,10 @@ type ListPoliciesResponse struct {
 // Policies define authorization rules using Rego code and can be scoped
 // to different levels (GLOBAL or USER). They are matched against
 // requests using label selectors and evaluated in priority order.
+//
+// Used for both create (POST) and update (PATCH). On create, display_name,
+// policy_type, and rego_code are required (enforced by the service). On
+// update, only fields present in the request body are merged (RFC 7396).
 type Policy struct {
 	// CreateTime Timestamp when the policy was created. This field is output-only
 	// and automatically set by the server.
@@ -98,7 +102,7 @@ type Policy struct {
 
 	// DisplayName Human-readable name for the policy. This is typically shown in
 	// user interfaces and should be descriptive.
-	DisplayName string `json:"display_name"`
+	DisplayName *string `json:"display_name,omitempty"`
 
 	// Enabled Whether the policy is currently active. Disabled policies are not
 	// evaluated during authorization decisions.
@@ -135,7 +139,7 @@ type Policy struct {
 	// - USER: Applies to requests for a specific user
 	//
 	// Policies are evaluated in hierarchical order: Global -> User
-	PolicyType PolicyPolicyType `json:"policy_type"`
+	PolicyType *PolicyPolicyType `json:"policy_type,omitempty"`
 
 	// Priority Priority value for policy evaluation order. Lower numbers have
 	// higher priority and are evaluated first.
@@ -155,7 +159,7 @@ type Policy struct {
 	// - Reference data from the policy engine
 	//
 	// The Rego code is validated on create and update operations.
-	RegoCode string `json:"rego_code"`
+	RegoCode *string `json:"rego_code,omitempty"`
 
 	// UpdateTime Timestamp when the policy was last updated. This field is output-only
 	// and automatically updated by the server on any modification.
@@ -262,5 +266,5 @@ type CreatePolicyParams struct {
 // CreatePolicyJSONRequestBody defines body for CreatePolicy for application/json ContentType.
 type CreatePolicyJSONRequestBody = Policy
 
-// ApplyPolicyJSONRequestBody defines body for ApplyPolicy for application/json ContentType.
-type ApplyPolicyJSONRequestBody = Policy
+// UpdatePolicyApplicationMergePatchPlusJSONRequestBody defines body for UpdatePolicy for application/merge-patch+json ContentType.
+type UpdatePolicyApplicationMergePatchPlusJSONRequestBody = Policy

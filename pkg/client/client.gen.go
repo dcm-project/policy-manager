@@ -107,10 +107,10 @@ type ClientInterface interface {
 	// GetPolicy request
 	GetPolicy(ctx context.Context, policyId PolicyIdPath, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ApplyPolicyWithBody request with any body
-	ApplyPolicyWithBody(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdatePolicyWithBody request with any body
+	UpdatePolicyWithBody(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ApplyPolicy(ctx context.Context, policyId PolicyIdPath, body ApplyPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdatePolicyWithApplicationMergePatchPlusJSONBody(ctx context.Context, policyId PolicyIdPath, body UpdatePolicyApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -185,8 +185,8 @@ func (c *Client) GetPolicy(ctx context.Context, policyId PolicyIdPath, reqEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) ApplyPolicyWithBody(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplyPolicyRequestWithBody(c.Server, policyId, contentType, body)
+func (c *Client) UpdatePolicyWithBody(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePolicyRequestWithBody(c.Server, policyId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +197,8 @@ func (c *Client) ApplyPolicyWithBody(ctx context.Context, policyId PolicyIdPath,
 	return c.Client.Do(req)
 }
 
-func (c *Client) ApplyPolicy(ctx context.Context, policyId PolicyIdPath, body ApplyPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplyPolicyRequest(c.Server, policyId, body)
+func (c *Client) UpdatePolicyWithApplicationMergePatchPlusJSONBody(ctx context.Context, policyId PolicyIdPath, body UpdatePolicyApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePolicyRequestWithApplicationMergePatchPlusJSONBody(c.Server, policyId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -463,19 +463,19 @@ func NewGetPolicyRequest(server string, policyId PolicyIdPath) (*http.Request, e
 	return req, nil
 }
 
-// NewApplyPolicyRequest calls the generic ApplyPolicy builder with application/json body
-func NewApplyPolicyRequest(server string, policyId PolicyIdPath, body ApplyPolicyJSONRequestBody) (*http.Request, error) {
+// NewUpdatePolicyRequestWithApplicationMergePatchPlusJSONBody calls the generic UpdatePolicy builder with application/merge-patch+json body
+func NewUpdatePolicyRequestWithApplicationMergePatchPlusJSONBody(server string, policyId PolicyIdPath, body UpdatePolicyApplicationMergePatchPlusJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewApplyPolicyRequestWithBody(server, policyId, "application/json", bodyReader)
+	return NewUpdatePolicyRequestWithBody(server, policyId, "application/merge-patch+json", bodyReader)
 }
 
-// NewApplyPolicyRequestWithBody generates requests for ApplyPolicy with any type of body
-func NewApplyPolicyRequestWithBody(server string, policyId PolicyIdPath, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdatePolicyRequestWithBody generates requests for UpdatePolicy with any type of body
+func NewUpdatePolicyRequestWithBody(server string, policyId PolicyIdPath, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -500,7 +500,7 @@ func NewApplyPolicyRequestWithBody(server string, policyId PolicyIdPath, content
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -570,10 +570,10 @@ type ClientWithResponsesInterface interface {
 	// GetPolicyWithResponse request
 	GetPolicyWithResponse(ctx context.Context, policyId PolicyIdPath, reqEditors ...RequestEditorFn) (*GetPolicyResponse, error)
 
-	// ApplyPolicyWithBodyWithResponse request with any body
-	ApplyPolicyWithBodyWithResponse(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyPolicyResponse, error)
+	// UpdatePolicyWithBodyWithResponse request with any body
+	UpdatePolicyWithBodyWithResponse(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error)
 
-	ApplyPolicyWithResponse(ctx context.Context, policyId PolicyIdPath, body ApplyPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyPolicyResponse, error)
+	UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx context.Context, policyId PolicyIdPath, body UpdatePolicyApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error)
 }
 
 type GetHealthResponse struct {
@@ -703,7 +703,7 @@ func (r GetPolicyResponse) StatusCode() int {
 	return 0
 }
 
-type ApplyPolicyResponse struct {
+type UpdatePolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Policy
@@ -711,11 +711,12 @@ type ApplyPolicyResponse struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON409      *AlreadyExists
 	JSON500      *InternalServerError
 }
 
 // Status returns HTTPResponse.Status
-func (r ApplyPolicyResponse) Status() string {
+func (r UpdatePolicyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -723,7 +724,7 @@ func (r ApplyPolicyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ApplyPolicyResponse) StatusCode() int {
+func (r UpdatePolicyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -783,21 +784,21 @@ func (c *ClientWithResponses) GetPolicyWithResponse(ctx context.Context, policyI
 	return ParseGetPolicyResponse(rsp)
 }
 
-// ApplyPolicyWithBodyWithResponse request with arbitrary body returning *ApplyPolicyResponse
-func (c *ClientWithResponses) ApplyPolicyWithBodyWithResponse(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyPolicyResponse, error) {
-	rsp, err := c.ApplyPolicyWithBody(ctx, policyId, contentType, body, reqEditors...)
+// UpdatePolicyWithBodyWithResponse request with arbitrary body returning *UpdatePolicyResponse
+func (c *ClientWithResponses) UpdatePolicyWithBodyWithResponse(ctx context.Context, policyId PolicyIdPath, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error) {
+	rsp, err := c.UpdatePolicyWithBody(ctx, policyId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseApplyPolicyResponse(rsp)
+	return ParseUpdatePolicyResponse(rsp)
 }
 
-func (c *ClientWithResponses) ApplyPolicyWithResponse(ctx context.Context, policyId PolicyIdPath, body ApplyPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyPolicyResponse, error) {
-	rsp, err := c.ApplyPolicy(ctx, policyId, body, reqEditors...)
+func (c *ClientWithResponses) UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx context.Context, policyId PolicyIdPath, body UpdatePolicyApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error) {
+	rsp, err := c.UpdatePolicyWithApplicationMergePatchPlusJSONBody(ctx, policyId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseApplyPolicyResponse(rsp)
+	return ParseUpdatePolicyResponse(rsp)
 }
 
 // ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
@@ -1049,15 +1050,15 @@ func ParseGetPolicyResponse(rsp *http.Response) (*GetPolicyResponse, error) {
 	return response, nil
 }
 
-// ParseApplyPolicyResponse parses an HTTP response from a ApplyPolicyWithResponse call
-func ParseApplyPolicyResponse(rsp *http.Response) (*ApplyPolicyResponse, error) {
+// ParseUpdatePolicyResponse parses an HTTP response from a UpdatePolicyWithResponse call
+func ParseUpdatePolicyResponse(rsp *http.Response) (*UpdatePolicyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ApplyPolicyResponse{
+	response := &UpdatePolicyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1097,6 +1098,13 @@ func ParseApplyPolicyResponse(rsp *http.Response) (*ApplyPolicyResponse, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest AlreadyExists
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError
