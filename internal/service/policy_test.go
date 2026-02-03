@@ -106,6 +106,108 @@ var _ = Describe("PolicyService", func() {
 			Expect(serviceErr.Message).To(ContainSubstring("rego_code is required"))
 		})
 
+		It("should validate priority is at least 1", func() {
+			priority := int32(0)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			_, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+			Expect(serviceErr.Message).To(ContainSubstring("priority must be between 1 and 1000"))
+		})
+
+		It("should reject negative priority", func() {
+			priority := int32(-1)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			_, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+			Expect(serviceErr.Message).To(ContainSubstring("priority must be between 1 and 1000"))
+		})
+
+		It("should accept priority at minimum (1)", func() {
+			priority := int32(1)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy Min Priority"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			created, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).To(BeNil())
+			Expect(created).NotTo(BeNil())
+			Expect(*created.Priority).To(Equal(int32(1)))
+		})
+
+		It("should accept priority at maximum (1000)", func() {
+			priority := int32(1000)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy Max Priority"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			created, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).To(BeNil())
+			Expect(created).NotTo(BeNil())
+			Expect(*created.Priority).To(Equal(int32(1000)))
+		})
+
+		It("should reject priority above maximum (1001)", func() {
+			priority := int32(1001)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			_, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+			Expect(serviceErr.Message).To(ContainSubstring("priority must be between 1 and 1000"))
+		})
+
+		It("should accept priority in mid-range (500)", func() {
+			priority := int32(500)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy Mid Priority"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+
+			created, err := policyService.CreatePolicy(ctx, policy, nil)
+
+			Expect(err).To(BeNil())
+			Expect(created).NotTo(BeNil())
+			Expect(*created.Priority).To(Equal(int32(500)))
+		})
+
 		It("should validate RegoCode is not just whitespace", func() {
 			policy := v1alpha1.Policy{
 				DisplayName: strPtr("Test Policy"),
@@ -601,6 +703,82 @@ var _ = Describe("PolicyService", func() {
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
 			Expect(serviceErr.Message).To(ContainSubstring("Policy priority and policy type"))
+		})
+
+		It("should reject update with priority below minimum (0)", func() {
+			clientID := "update-prio-min-test"
+			priority := int32(500)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+			Expect(err).To(BeNil())
+
+			invalidPriority := int32(0)
+			patch := &v1alpha1.Policy{
+				Priority: &invalidPriority,
+			}
+
+			_, err = policyService.UpdatePolicy(ctx, "update-prio-min-test", patch)
+
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+			Expect(serviceErr.Message).To(ContainSubstring("priority must be between 1 and 1000"))
+		})
+
+		It("should reject update with priority above maximum (1001)", func() {
+			clientID := "update-prio-max-test"
+			priority := int32(500)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+			Expect(err).To(BeNil())
+
+			invalidPriority := int32(1001)
+			patch := &v1alpha1.Policy{
+				Priority: &invalidPriority,
+			}
+
+			_, err = policyService.UpdatePolicy(ctx, "update-prio-max-test", patch)
+
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+			Expect(serviceErr.Message).To(ContainSubstring("priority must be between 1 and 1000"))
+		})
+
+		It("should accept update with valid priority (800)", func() {
+			clientID := "update-prio-valid-test"
+			priority := int32(500)
+			policy := v1alpha1.Policy{
+				DisplayName: strPtr("Test Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package test"),
+				Priority:    &priority,
+			}
+			_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+			Expect(err).To(BeNil())
+
+			newPriority := int32(800)
+			patch := &v1alpha1.Policy{
+				Priority: &newPriority,
+			}
+
+			updated, err := policyService.UpdatePolicy(ctx, "update-prio-valid-test", patch)
+
+			Expect(err).To(BeNil())
+			Expect(updated).NotTo(BeNil())
+			Expect(*updated.Priority).To(Equal(int32(800)))
 		})
 	})
 
