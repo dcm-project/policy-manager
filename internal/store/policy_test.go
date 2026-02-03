@@ -54,7 +54,7 @@ var _ = Describe("Policy Store", func() {
 
 			p2 := newPolicy("duplicate-id")
 			_, err = policyStore.Create(ctx, p2)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(store.ErrPolicyIDTaken))
 		})
 
 		It("returns ErrDisplayNamePolicyTypeTaken when creating two policies with same display_name and policy_type", func() {
