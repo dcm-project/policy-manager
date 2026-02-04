@@ -66,20 +66,6 @@ type Health struct {
 	Status string `json:"status"`
 }
 
-// ListPoliciesResponse Response message for listing policies.
-//
-// Implements AEP-132 List standard method requirements.
-type ListPoliciesResponse struct {
-	// NextPageToken Token for retrieving the next page of results. If empty or not
-	// present, there are no more results.
-	//
-	// This token is opaque and should not be parsed by clients.
-	NextPageToken *string `json:"next_page_token,omitempty"`
-
-	// Policies List of policy resources matching the request criteria
-	Policies []Policy `json:"policies"`
-}
-
 // Policy Represents an OPA (Open Policy Agent) policy resource.
 //
 // Policies define authorization rules using Rego code and can be scoped
@@ -175,6 +161,20 @@ type Policy struct {
 //
 // Policies are evaluated in hierarchical order: Global -> User
 type PolicyPolicyType string
+
+// PolicyList Response message for listing policies.
+//
+// Implements AEP-132 List standard method requirements.
+type PolicyList struct {
+	// NextPageToken Token for retrieving the next page of results. If empty or not
+	// present, there are no more results.
+	//
+	// This token is opaque and should not be parsed by clients.
+	NextPageToken *string `json:"next_page_token,omitempty"`
+
+	// Policies List of policy resources matching the request criteria
+	Policies []Policy `json:"policies"`
+}
 
 // PolicyIdPath defines model for PolicyIdPath.
 type PolicyIdPath = string

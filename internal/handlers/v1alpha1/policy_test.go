@@ -14,7 +14,7 @@ import (
 type MockPolicyService struct {
 	CreatePolicyFn func(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
 	GetPolicyFn    func(ctx context.Context, id string) (*v1alpha1.Policy, error)
-	ListPoliciesFn func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
+	ListPoliciesFn func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error)
 	UpdatePolicyFn func(ctx context.Context, id string, patch *v1alpha1.Policy) (*v1alpha1.Policy, error)
 	DeletePolicyFn func(ctx context.Context, id string) error
 }
@@ -33,7 +33,7 @@ func (m *MockPolicyService) GetPolicy(ctx context.Context, id string) (*v1alpha1
 	return nil, nil
 }
 
-func (m *MockPolicyService) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+func (m *MockPolicyService) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
 	if m.ListPoliciesFn != nil {
 		return m.ListPoliciesFn(ctx, filter, orderBy, pageToken, pageSize)
 	}
@@ -221,8 +221,8 @@ var _ = Describe("PolicyHandler", func() {
 			regoCodeEmpty := ""
 			pt1 := v1alpha1.GLOBAL
 			pt2 := v1alpha1.USER
-			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
-				return &v1alpha1.ListPoliciesResponse{
+			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
+				return &v1alpha1.PolicyList{
 					Policies: []v1alpha1.Policy{
 						{
 							Id:          &policyID1,
@@ -260,9 +260,9 @@ var _ = Describe("PolicyHandler", func() {
 			filter := "policy_type='GLOBAL'"
 			var receivedFilter *string
 
-			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
 				receivedFilter = filter
-				return &v1alpha1.ListPoliciesResponse{
+				return &v1alpha1.PolicyList{
 					Policies: []v1alpha1.Policy{},
 				}, nil
 			}
@@ -285,10 +285,10 @@ var _ = Describe("PolicyHandler", func() {
 			var receivedPageToken *string
 			var receivedPageSize *int32
 
-			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
 				receivedPageToken = pageToken
 				receivedPageSize = pageSize
-				return &v1alpha1.ListPoliciesResponse{
+				return &v1alpha1.PolicyList{
 					Policies: []v1alpha1.Policy{},
 				}, nil
 			}
@@ -310,7 +310,7 @@ var _ = Describe("PolicyHandler", func() {
 		It("should return 400 for invalid filter", func() {
 			ctx := context.Background()
 
-			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+			mockService.ListPoliciesFn = func(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
 				return nil, service.NewInvalidArgumentError("Invalid filter", "Bad filter expression")
 			}
 
