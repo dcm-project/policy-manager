@@ -124,7 +124,7 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*Polic
 	return result, nil
 }
 
-// mapUniqueConstraintError maps a DB unique constraint violation to a store sentinel error
+// mapUniqueConstraintError maps a DB unique constraint violation to a store sentinel error.
 // by querying the DB to see which constraint would be violated (ID, display_name+policy_type, or priority+policy_type).
 func (s *PolicyStore) mapUniqueConstraintError(ctx context.Context, err error, attempted model.Policy, isUpdate bool) error {
 	if err == nil {
