@@ -125,9 +125,8 @@ func (s *PolicyStore) List(ctx context.Context, opts *PolicyListOptions) (*Polic
 }
 
 // mapUniqueConstraintError maps a DB unique constraint violation to a store sentinel error.
-// It checks for gorm.ErrDuplicatedKey and then the constraint/index name in the error message
-// (Postgres includes constraint name; SQLite may include column names like "priority" or "display_name").
-func mapUniqueConstraintError(err error) error {
+// by querying the DB to see which constraint would be violated (ID, display_name+policy_type, or priority+policy_type).
+func (s *PolicyStore) mapUniqueConstraintError(ctx context.Context, err error, attempted model.Policy, isUpdate bool) error {
 	if err == nil {
 		return nil
 	}
@@ -138,22 +137,37 @@ func mapUniqueConstraintError(err error) error {
 			return err
 		}
 	}
-	msg := err.Error()
-	// Prefer index/constraint name; fallback to column names for SQLite (check display_name before priority to avoid misclassification)
-	if strings.Contains(msg, "idx_display_name_policy_type") ||
-		(strings.Contains(msg, "display_name") && strings.Contains(msg, "policy_type")) {
-		return ErrDisplayNamePolicyTypeTaken
+
+	checks := []struct {
+		sentinel error
+		query    *gorm.DB
+	}{
+		{ErrPolicyIDTaken, s.db.WithContext(ctx).Where("id = ?", attempted.ID).Limit(1)},
+		{ErrDisplayNamePolicyTypeTaken, s.db.WithContext(ctx).Where("display_name = ? AND policy_type = ?", attempted.DisplayName, attempted.PolicyType).Limit(1)},
+		{ErrPriorityPolicyTypeTaken, s.db.WithContext(ctx).Where("priority = ? AND policy_type = ?", attempted.Priority, attempted.PolicyType).Limit(1)},
 	}
-	if strings.Contains(msg, "idx_priority_policy_type") ||
-		(strings.Contains(msg, "priority") && strings.Contains(msg, "policy_type")) {
-		return ErrPriorityPolicyTypeTaken
+
+	for _, c := range checks {
+		query := c.query
+		if isUpdate {
+			query = query.Where("id != ?", attempted.ID)
+		}
+		var row model.Policy
+		dberr := query.First(&row).Error
+		if dberr == nil {
+			return c.sentinel
+		}
+		if !errors.Is(dberr, gorm.ErrRecordNotFound) {
+			return err
+		}
 	}
+
 	return err
 }
 
 func (s *PolicyStore) Create(ctx context.Context, policy model.Policy) (*model.Policy, error) {
 	if err := s.db.WithContext(ctx).Clauses(clause.Returning{}).Select("*").Create(&policy).Error; err != nil {
-		return nil, mapUniqueConstraintError(err)
+		return nil, s.mapUniqueConstraintError(ctx, err, policy, false)
 	}
 	return &policy, nil
 }
@@ -177,7 +191,7 @@ func (s *PolicyStore) Update(ctx context.Context, policy model.Policy) (*model.P
 		Clauses(clause.Returning{}).
 		Updates(&policy)
 	if result.Error != nil {
-		return nil, mapUniqueConstraintError(result.Error)
+		return nil, s.mapUniqueConstraintError(ctx, result.Error, policy, true)
 	}
 	if result.RowsAffected == 0 {
 		return nil, ErrPolicyNotFound

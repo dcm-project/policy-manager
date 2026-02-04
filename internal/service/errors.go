@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/store"
@@ -42,17 +41,15 @@ func (e *ServiceError) Unwrap() error {
 }
 
 func processPolicyStoreError(err error, dbPolicy model.Policy, operation string) *ServiceError {
-	// Check for duplicate display_name+policy_type or priority+policy_type
+	// Check for duplicate ID error first
+	if errors.Is(err, store.ErrPolicyIDTaken) {
+		return NewPolicyAlreadyExistsError(dbPolicy.ID)
+	}
 	if errors.Is(err, store.ErrDisplayNamePolicyTypeTaken) {
 		return NewPolicyDisplayNamePolicyTypeTakenError(dbPolicy.DisplayName, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
 	}
 	if errors.Is(err, store.ErrPriorityPolicyTypeTaken) {
 		return NewPolicyPriorityPolicyTypeTakenError(dbPolicy.Priority, v1alpha1.PolicyPolicyType(dbPolicy.PolicyType))
-	}
-	// Check for duplicate ID error
-	if errors.Is(err, store.ErrPolicyIDTaken) || strings.Contains(err.Error(), "UNIQUE constraint failed") ||
-		strings.Contains(err.Error(), "duplicate key") {
-		return NewPolicyAlreadyExistsError(dbPolicy.ID)
 	}
 	if errors.Is(err, store.ErrPolicyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		return NewPolicyNotFoundError(dbPolicy.ID)

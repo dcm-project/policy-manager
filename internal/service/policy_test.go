@@ -259,6 +259,8 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+			Expect(serviceErr.Message).To(ContainSubstring("Policy already exists"))
+			Expect(serviceErr.Detail).To(ContainSubstring("duplicate-policy"))
 		})
 
 		It("should return AlreadyExists when creating two policies with same display_name and policy_type", func() {
