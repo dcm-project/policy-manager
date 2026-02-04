@@ -138,45 +138,28 @@ func (s *PolicyStore) mapUniqueConstraintError(ctx context.Context, err error, a
 		}
 	}
 
-	var dberr error
-	// Create only: ID conflict (primary key)
-	if !isUpdate {
-		var existing model.Policy
-		dberr = s.db.WithContext(ctx).Where("id = ?", attempted.ID).Limit(1).First(&existing).Error
+	checks := []struct {
+		sentinel error
+		query    *gorm.DB
+	}{
+		{ErrPolicyIDTaken, s.db.WithContext(ctx).Where("id = ?", attempted.ID).Limit(1)},
+		{ErrDisplayNamePolicyTypeTaken, s.db.WithContext(ctx).Where("display_name = ? AND policy_type = ?", attempted.DisplayName, attempted.PolicyType).Limit(1)},
+		{ErrPriorityPolicyTypeTaken, s.db.WithContext(ctx).Where("priority = ? AND policy_type = ?", attempted.Priority, attempted.PolicyType).Limit(1)},
+	}
+
+	for _, c := range checks {
+		query := c.query
+		if isUpdate {
+			query = query.Where("id != ?", attempted.ID)
+		}
+		var row model.Policy
+		dberr := query.First(&row).Error
 		if dberr == nil {
-			return ErrPolicyIDTaken
+			return c.sentinel
 		}
 		if !errors.Is(dberr, gorm.ErrRecordNotFound) {
 			return err
 		}
-	}
-
-	// Another row with same (display_name, policy_type)
-	dnQuery := s.db.WithContext(ctx).Where("display_name = ? AND policy_type = ?", attempted.DisplayName, attempted.PolicyType)
-	if isUpdate {
-		dnQuery = dnQuery.Where("id != ?", attempted.ID)
-	}
-	var dnRow model.Policy
-	dberr = dnQuery.Limit(1).First(&dnRow).Error
-	if dberr == nil {
-		return ErrDisplayNamePolicyTypeTaken
-	}
-	if !errors.Is(dberr, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	// Another row with same (priority, policy_type)
-	prioQuery := s.db.WithContext(ctx).Where("priority = ? AND policy_type = ?", attempted.Priority, attempted.PolicyType)
-	if isUpdate {
-		prioQuery = prioQuery.Where("id != ?", attempted.ID)
-	}
-	var prioRow model.Policy
-	dberr = prioQuery.Limit(1).First(&prioRow).Error
-	if dberr == nil {
-		return ErrPriorityPolicyTypeTaken
-	}
-	if !errors.Is(dberr, gorm.ErrRecordNotFound) {
-		return err
 	}
 
 	return err
