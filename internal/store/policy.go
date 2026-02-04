@@ -137,10 +137,8 @@ func (s *PolicyStore) mapUniqueConstraintError(ctx context.Context, err error, a
 			return err
 		}
 	}
-	// Use a fresh session for lookups so we don't reuse state from the failed Create/Update.
-	// db := s.db.WithContext(ctx).Session(&gorm.Session{NewDB: true})
-	var dberr error
 
+	var dberr error
 	// Create only: ID conflict (primary key)
 	if !isUpdate {
 		var existing model.Policy
