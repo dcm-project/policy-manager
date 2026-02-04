@@ -27,7 +27,7 @@ var (
 type PolicyService interface {
 	CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
 	GetPolicy(ctx context.Context, id string) (*v1alpha1.Policy, error)
-	ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error)
+	ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error)
 	UpdatePolicy(ctx context.Context, id string, patch *v1alpha1.Policy) (*v1alpha1.Policy, error)
 	DeletePolicy(ctx context.Context, id string) error
 }
@@ -197,7 +197,7 @@ func getListOptions(filter *string, orderBy *string, pageToken *string, pageSize
 }
 
 // ListPolicies lists policies with optional filtering, ordering, and pagination.
-func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.ListPoliciesResponse, error) {
+func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error) {
 	opts, err := getListOptions(filter, orderBy, pageToken, pageSize)
 	if err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, or
 	}
 
 	// Build response
-	response := &v1alpha1.ListPoliciesResponse{
+	response := &v1alpha1.PolicyList{
 		Policies: apiPolicies,
 	}
 

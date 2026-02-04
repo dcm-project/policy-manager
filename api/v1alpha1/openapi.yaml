@@ -184,7 +184,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListPoliciesResponse'
+                $ref: '#/components/schemas/PolicyList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -478,7 +478,7 @@ components:
         patterns:
           - policies/{policy_id}
 
-    ListPoliciesResponse:
+    PolicyList:
       type: object
       description: |
         Response message for listing policies.

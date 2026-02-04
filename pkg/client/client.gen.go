@@ -601,7 +601,7 @@ func (r GetHealthResponse) StatusCode() int {
 type ListPoliciesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *ListPoliciesResponse
+	JSON200      *PolicyList
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -842,7 +842,7 @@ func ParseListPoliciesResponse(rsp *http.Response) (*ListPoliciesResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ListPoliciesResponse
+		var dest PolicyList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

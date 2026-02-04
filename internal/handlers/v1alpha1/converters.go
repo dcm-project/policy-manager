@@ -47,12 +47,12 @@ func policyV1Alpha1ToServer(p v1alpha1.Policy) server.Policy {
 	return out
 }
 
-func listResponseV1Alpha1ToServer(r v1alpha1.ListPoliciesResponse) server.ListPoliciesResponse {
+func listResponseV1Alpha1ToServer(r v1alpha1.PolicyList) server.PolicyList {
 	policies := make([]server.Policy, len(r.Policies))
 	for i, p := range r.Policies {
 		policies[i] = policyV1Alpha1ToServer(p)
 	}
-	return server.ListPoliciesResponse{
+	return server.PolicyList{
 		NextPageToken: r.NextPageToken,
 		Policies:      policies,
 	}
