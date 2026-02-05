@@ -16,7 +16,7 @@ vet:
 	go vet ./...
 
 test:
-	go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --fail-on-pending
+	go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --fail-on-pending --skip-package=e2e
 
 tidy:
 	go mod tidy
@@ -55,4 +55,16 @@ check-generate-api: generate-api
 check-aep:
 	spectral lint --fail-severity=warn ./api/v1alpha1/openapi.yaml
 
-.PHONY: build run clean fmt vet test tidy generate-types generate-spec generate-server generate-client generate-api check-generate-api check-aep
+# E2E test targets
+test-e2e:
+	go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --fail-on-pending -tags=e2e ./test/e2e
+
+e2e-up:
+	podman-compose up -d --build
+
+e2e-down:
+	podman-compose down -v
+
+test-e2e-full: e2e-up test-e2e e2e-down
+
+.PHONY: build run clean fmt vet test tidy generate-types generate-spec generate-server generate-client generate-api check-generate-api check-aep test-e2e e2e-up e2e-down test-e2e-full
