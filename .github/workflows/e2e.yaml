@@ -1,0 +1,78 @@
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # Check if we need to run E2E tests based on changed files
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run-e2e: ${{ steps.filter.outputs.run-e2e }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for relevant changes
+        id: filter
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          else
+            FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          fi
+
+          # Check if only docs were changed
+          if echo "$FILES" | grep -v '\.md$' > /dev/null; then
+            echo "run-e2e=true" >> $GITHUB_OUTPUT
+          else
+            echo "run-e2e=false" >> $GITHUB_OUTPUT
+          fi
+
+  e2e:
+    needs: check-changes
+    if: needs.check-changes.outputs.run-e2e == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install podman-compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          pip install podman-compose
+
+      - name: Start services
+        run: make e2e-up
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for policy-manager to be healthy..."
+          timeout 60 bash -c 'until curl -f http://localhost:8080/api/v1alpha1/health; do sleep 2; done'
+
+      - name: Run E2E tests
+        run: make test-e2e
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Policy Manager Logs ==="
+          podman-compose logs policy-manager
+          echo "=== PostgreSQL Logs ==="
+          podman-compose logs postgres
+
+      - name: Stop services
+        if: always()
+        run: make e2e-down
