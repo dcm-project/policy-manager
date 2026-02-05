@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/dcm-project/policy-manager/internal/apiserver"
 	"github.com/dcm-project/policy-manager/internal/config"
 	"github.com/dcm-project/policy-manager/internal/handlers/v1alpha1"
+	"github.com/dcm-project/policy-manager/internal/opa"
 	"github.com/dcm-project/policy-manager/internal/service"
 	"github.com/dcm-project/policy-manager/internal/store"
 )
@@ -36,8 +38,22 @@ func main() {
 		}
 	}()
 
+	// Parse OPA timeout
+	opaTimeout, err := time.ParseDuration(cfg.OPA.Timeout)
+	if err != nil {
+		log.Fatalf("Failed to parse OPA timeout: %v", err)
+	}
+
+	// Initialize OPA client
+	opaClient := opa.NewClient(cfg.OPA.URL, opaTimeout)
+	defer func() {
+		if err := opaClient.Close(); err != nil {
+			log.Printf("Error closing OPA client: %v", err)
+		}
+	}()
+
 	// Create service
-	policyService := service.NewPolicyService(dataStore)
+	policyService := service.NewPolicyService(dataStore, opaClient)
 
 	// Create handler
 	policyHandler := v1alpha1.NewPolicyHandler(policyService)

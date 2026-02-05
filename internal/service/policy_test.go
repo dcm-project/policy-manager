@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
+	"github.com/dcm-project/policy-manager/internal/opa"
 	"github.com/dcm-project/policy-manager/internal/service"
 	"github.com/dcm-project/policy-manager/internal/store"
 	"github.com/dcm-project/policy-manager/internal/store/model"
@@ -19,10 +20,48 @@ func strPtr(s string) *string { return &s }
 
 func policyTypePtr(t v1alpha1.PolicyPolicyType) *v1alpha1.PolicyPolicyType { return &t }
 
+// MockOPAClient is a function-based mock for the OPA client
+type MockOPAClient struct {
+	StorePolicyFunc  func(ctx context.Context, policyID string, regoCode string) error
+	GetPolicyFunc    func(ctx context.Context, policyID string) (string, error)
+	DeletePolicyFunc func(ctx context.Context, policyID string) error
+	CloseFunc        func() error
+}
+
+func (m *MockOPAClient) StorePolicy(ctx context.Context, policyID string, regoCode string) error {
+	if m.StorePolicyFunc != nil {
+		return m.StorePolicyFunc(ctx, policyID, regoCode)
+	}
+	return nil
+}
+
+func (m *MockOPAClient) GetPolicy(ctx context.Context, policyID string) (string, error) {
+	if m.GetPolicyFunc != nil {
+		return m.GetPolicyFunc(ctx, policyID)
+	}
+	return "", opa.ErrPolicyNotFound
+}
+
+func (m *MockOPAClient) DeletePolicy(ctx context.Context, policyID string) error {
+	if m.DeletePolicyFunc != nil {
+		return m.DeletePolicyFunc(ctx, policyID)
+	}
+	return nil
+}
+
+func (m *MockOPAClient) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}
+
 var _ = Describe("PolicyService", func() {
 	var (
 		db            *gorm.DB
 		dataStore     store.Store
+		mockOPA       *MockOPAClient
+		opaStorage    map[string]string
 		policyService service.PolicyService
 		ctx           context.Context
 	)
@@ -36,7 +75,27 @@ var _ = Describe("PolicyService", func() {
 		Expect(db.AutoMigrate(&model.Policy{})).To(Succeed())
 
 		dataStore = store.NewStore(db)
-		policyService = service.NewPolicyService(dataStore)
+
+		// Create mock OPA client with in-memory storage
+		opaStorage = make(map[string]string)
+		mockOPA = &MockOPAClient{
+			StorePolicyFunc: func(ctx context.Context, policyID string, regoCode string) error {
+				opaStorage[policyID] = regoCode
+				return nil
+			},
+			GetPolicyFunc: func(ctx context.Context, policyID string) (string, error) {
+				if code, ok := opaStorage[policyID]; ok {
+					return code, nil
+				}
+				return "", opa.ErrPolicyNotFound
+			},
+			DeletePolicyFunc: func(ctx context.Context, policyID string) error {
+				delete(opaStorage, policyID)
+				return nil
+			},
+		}
+
+		policyService = service.NewPolicyService(dataStore, mockOPA)
 		ctx = context.Background()
 	})
 
@@ -374,7 +433,7 @@ var _ = Describe("PolicyService", func() {
 			Expect(retrieved.DisplayName).NotTo(BeNil())
 			Expect(*retrieved.DisplayName).To(Equal("Test Policy"))
 			Expect(retrieved.RegoCode).NotTo(BeNil())
-			Expect(*retrieved.RegoCode).To(Equal("")) // Should be empty
+			Expect(*retrieved.RegoCode).To(Equal("package test")) // Should return actual Rego from OPA
 			Expect(retrieved.CreateTime).To(Equal(created.CreateTime))
 		})
 
@@ -1024,6 +1083,315 @@ var _ = Describe("PolicyService", func() {
 			serviceErr, ok := err.(*service.ServiceError)
 			Expect(ok).To(BeTrue())
 			Expect(serviceErr.Type).To(Equal(service.ErrorTypeNotFound))
+		})
+	})
+
+	Describe("OPA Integration", func() {
+		Describe("CreatePolicy", func() {
+			It("should reject invalid Rego code", func() {
+				// Override mock to simulate OPA validation error
+				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
+					return opa.ErrInvalidRego
+				}
+
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("invalid rego syntax"),
+				}
+
+				_, err := policyService.CreatePolicy(ctx, policy, nil)
+
+				Expect(err).NotTo(BeNil())
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+				Expect(serviceErr.Message).To(ContainSubstring("Invalid Rego code"))
+			})
+
+			It("should rollback OPA on DB failure", func() {
+				clientID := "rollback-test"
+				var storedPolicyID string
+				var rollbackCalled bool
+
+				// Track if StorePolicy is called
+				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
+					storedPolicyID = policyID
+					opaStorage[policyID] = regoCode
+					return nil
+				}
+
+				// Track if DeletePolicy is called
+				mockOPA.DeletePolicyFunc = func(ctx context.Context, policyID string) error {
+					rollbackCalled = true
+					Expect(policyID).To(Equal(storedPolicyID))
+					delete(opaStorage, policyID)
+					return nil
+				}
+
+				// Create first policy to force DB error on duplicate
+				policy1 := v1alpha1.Policy{
+					DisplayName: strPtr("First Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test1"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy1, &clientID)
+				Expect(err).To(BeNil())
+
+				// Try to create duplicate (same client ID)
+				policy2 := v1alpha1.Policy{
+					DisplayName: strPtr("Second Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test2"),
+				}
+				_, err = policyService.CreatePolicy(ctx, policy2, &clientID)
+
+				Expect(err).NotTo(BeNil())
+				Expect(rollbackCalled).To(BeTrue(), "OPA rollback should be called")
+			})
+		})
+
+		Describe("GetPolicy", func() {
+			It("should return INTERNAL error when Rego missing in OPA", func() {
+				// Create policy in DB but not in OPA
+				clientID := "missing-rego-test"
+				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
+					// Don't store in opaStorage to simulate missing Rego
+					return nil
+				}
+
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Try to get the policy (Rego not in OPA)
+				_, err = policyService.GetPolicy(ctx, clientID)
+
+				Expect(err).NotTo(BeNil())
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeInternal))
+			})
+
+			It("should return INTERNAL error when OPA unavailable", func() {
+				// Create policy normally
+				clientID := "opa-unavailable-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Override GetPolicy to simulate OPA unavailable
+				mockOPA.GetPolicyFunc = func(ctx context.Context, policyID string) (string, error) {
+					return "", opa.ErrOPAUnavailable
+				}
+
+				_, err = policyService.GetPolicy(ctx, clientID)
+
+				Expect(err).NotTo(BeNil())
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeInternal))
+			})
+		})
+
+		Describe("UpdatePolicy", func() {
+			It("should update Rego code in OPA", func() {
+				// Create policy
+				clientID := "update-rego-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test\ndefault allow = false"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Update Rego code
+				newRego := "package test\ndefault allow = true"
+				patch := &v1alpha1.Policy{
+					RegoCode: &newRego,
+				}
+				updated, err := policyService.UpdatePolicy(ctx, clientID, patch)
+
+				Expect(err).To(BeNil())
+				Expect(updated).NotTo(BeNil())
+
+				// Verify new Rego is in OPA storage
+				Expect(opaStorage[clientID]).To(Equal(newRego))
+
+				// Verify GET returns new Rego
+				retrieved, err := policyService.GetPolicy(ctx, clientID)
+				Expect(err).To(BeNil())
+				Expect(*retrieved.RegoCode).To(Equal(newRego))
+			})
+
+			It("should reject invalid Rego on update", func() {
+				// Create policy
+				clientID := "update-invalid-rego-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Override StorePolicy to return invalid Rego error
+				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
+					if regoCode == "invalid" {
+						return opa.ErrInvalidRego
+					}
+					opaStorage[policyID] = regoCode
+					return nil
+				}
+
+				// Try to update with invalid Rego
+				invalidRego := "invalid"
+				patch := &v1alpha1.Policy{
+					RegoCode: &invalidRego,
+				}
+				_, err = policyService.UpdatePolicy(ctx, clientID, patch)
+
+				Expect(err).NotTo(BeNil())
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeInvalidArgument))
+
+				// Verify old Rego still in OPA
+				Expect(opaStorage[clientID]).To(Equal("package test"))
+			})
+
+			It("should rollback OPA on DB update failure", func() {
+				// Create first policy with specific display_name and policy_type
+				clientID1 := "update-rollback-test-1"
+				priority1 := int32(100)
+				policy1 := v1alpha1.Policy{
+					DisplayName: strPtr("Unique Name"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test1"),
+					Priority:    &priority1,
+				}
+				_, err := policyService.CreatePolicy(ctx, policy1, &clientID1)
+				Expect(err).To(BeNil())
+
+				// Create second policy with different priority
+				clientID2 := "update-rollback-test-2"
+				priority2 := int32(200)
+				policy2 := v1alpha1.Policy{
+					DisplayName: strPtr("Another Name"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test2"),
+					Priority:    &priority2,
+				}
+				_, err = policyService.CreatePolicy(ctx, policy2, &clientID2)
+				Expect(err).To(BeNil())
+
+				oldRego := opaStorage[clientID2]
+
+				// Try to update policy2 with display_name that conflicts with policy1
+				// This should fail at DB level and rollback OPA
+				newRego := "package test2_updated"
+				patch := &v1alpha1.Policy{
+					DisplayName: strPtr("Unique Name"), // Conflicts with policy1
+					RegoCode:    &newRego,
+				}
+				_, err = policyService.UpdatePolicy(ctx, clientID2, patch)
+
+				Expect(err).NotTo(BeNil())
+				// Verify old Rego is restored in OPA
+				Expect(opaStorage[clientID2]).To(Equal(oldRego))
+			})
+
+			It("should not call OPA when RegoCode not in patch", func() {
+				// Create policy
+				clientID := "update-no-rego-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				opaCalled := false
+				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
+					opaCalled = true
+					opaStorage[policyID] = regoCode
+					return nil
+				}
+
+				// Update only display_name (no RegoCode)
+				patch := &v1alpha1.Policy{
+					DisplayName: strPtr("Updated Name"),
+				}
+				updated, err := policyService.UpdatePolicy(ctx, clientID, patch)
+
+				Expect(err).To(BeNil())
+				Expect(updated).NotTo(BeNil())
+				Expect(*updated.DisplayName).To(Equal("Updated Name"))
+				Expect(opaCalled).To(BeFalse(), "OPA should not be called when RegoCode not in patch")
+			})
+		})
+
+		Describe("DeletePolicy", func() {
+			It("should delete from both DB and OPA", func() {
+				// Create policy
+				clientID := "delete-opa-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Verify policy exists in OPA
+				Expect(opaStorage).To(HaveKey(clientID))
+
+				// Delete policy
+				err = policyService.DeletePolicy(ctx, clientID)
+
+				Expect(err).To(BeNil())
+				// Verify deleted from OPA
+				Expect(opaStorage).NotTo(HaveKey(clientID))
+			})
+
+			It("should succeed even if OPA delete fails", func() {
+				// Create policy
+				clientID := "delete-opa-fail-test"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("Test Policy"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr("package test"),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+
+				// Override DeletePolicy to return error
+				mockOPA.DeletePolicyFunc = func(ctx context.Context, policyID string) error {
+					return opa.ErrOPAUnavailable
+				}
+
+				// Delete should still succeed (best effort)
+				err = policyService.DeletePolicy(ctx, clientID)
+
+				Expect(err).To(BeNil())
+
+				// Verify deleted from DB
+				_, err = policyService.GetPolicy(ctx, clientID)
+				Expect(err).NotTo(BeNil())
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeNotFound))
+			})
 		})
 	})
 })

@@ -1368,4 +1368,145 @@ allow if {
 			createdPolicyIDs = append(createdPolicyIDs, *resp.JSON201.Id)
 		})
 	})
+
+	Describe("OPA Integration", func() {
+		It("should store and retrieve Rego code", func() {
+			regoCode := "package authz\n\ndefault allow = false\n\nallow if {\n\tinput.user == \"admin\"\n}"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("OPA Test Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(300)),
+				Enabled:     ptr(true),
+				RegoCode:    &regoCode,
+			}
+
+			// Create policy
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			// Get policy - should return Rego code
+			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
+			Expect(*getResp.JSON200.RegoCode).To(Equal(regoCode), "GET should return actual Rego code from OPA")
+		})
+
+		It("should reject invalid Rego code", func() {
+			invalidRego := "this is not valid rego syntax!!!"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Invalid Rego Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(301)),
+				Enabled:     ptr(true),
+				RegoCode:    &invalidRego,
+			}
+
+			resp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest), "Should reject invalid Rego")
+			Expect(resp.JSON400).NotTo(BeNil())
+			Expect(string(resp.JSON400.Type)).To(Equal("INVALID_ARGUMENT"))
+		})
+
+		It("should update Rego code", func() {
+			originalRego := "package authz\n\ndefault allow = false"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Update Rego Test"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(302)),
+				Enabled:     ptr(true),
+				RegoCode:    &originalRego,
+			}
+
+			// Create policy
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			// Update Rego code
+			updatedRego := "package authz\n\ndefault allow = true"
+			patch := v1alpha1.Policy{
+				RegoCode: &updatedRego,
+			}
+
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusOK))
+
+			// Verify updated Rego is returned by GET
+			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
+			Expect(*getResp.JSON200.RegoCode).To(Equal(updatedRego), "GET should return updated Rego code")
+		})
+
+		It("should return empty rego_code in LIST responses", func() {
+			regoCode := "package test\n\ndefault allow = false"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("List Test Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(303)),
+				Enabled:     ptr(true),
+				RegoCode:    &regoCode,
+			}
+
+			// Create policy
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			// List policies
+			listResp, err := apiClient.ListPoliciesWithResponse(ctx, &v1alpha1.ListPoliciesParams{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(listResp.JSON200).NotTo(BeNil())
+
+			// Find the created policy in the list
+			found := false
+			for _, p := range listResp.JSON200.Policies {
+				if *p.Id == policyID {
+					found = true
+					Expect(p.RegoCode).NotTo(BeNil())
+					Expect(*p.RegoCode).To(Equal(""), "LIST should return empty rego_code for performance")
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "Created policy should be in list")
+		})
+
+		It("should support Unicode characters in Rego code", func() {
+			// Rego code with Unicode comments
+			unicodeRego := "package test\n\n# 政策规则 - Policy Rule\n# Правило политики\ndefault allow = false\n\n# Allow admin users\nallow if {\n\t# 管理员用户\n\tinput.user == \"admin\"\n}"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Unicode Rego Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(304)),
+				Enabled:     ptr(true),
+				RegoCode:    &unicodeRego,
+			}
+
+			// Create policy
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			// Get policy - verify Unicode is preserved
+			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
+			Expect(*getResp.JSON200.RegoCode).To(Equal(unicodeRego), "Unicode characters should be preserved")
+		})
+	})
 })
