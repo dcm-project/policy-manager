@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -35,10 +35,7 @@ jobs:
       - name: Collect logs on failure
         if: failure()
         run: |
-          echo "=== Policy Manager Logs ==="
-          podman-compose logs policy-manager
-          echo "=== PostgreSQL Logs ==="
-          podman-compose logs postgres
+          podman-compose logs
 
       - name: Stop services
         if: always()
