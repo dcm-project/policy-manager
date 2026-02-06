@@ -1,4 +1,8 @@
 BINARY_NAME := policy-manager
+# COMPOSE: compose command. Set to override; otherwise auto-detect podman-compose or docker-compose.
+COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo podman-compose || \
+	(command -v docker-compose >/dev/null 2>&1 && echo docker-compose || \
+	(echo "Neither podman-compose nor docker-compose found" >&2 && exit 1)))
 
 build:
 	go build -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
@@ -60,10 +64,10 @@ test-e2e:
 	go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-all --fail-on-pending -tags=e2e ./test/e2e
 
 e2e-up:
-	podman-compose up -d --build
+	$(COMPOSE) up -d --build
 
 e2e-down:
-	podman-compose down -v
+	$(COMPOSE) down -v
 
 test-e2e-full: e2e-up test-e2e e2e-down
 
