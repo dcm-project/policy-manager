@@ -673,6 +673,36 @@ var _ = Describe("Policy CRUD Operations", func() {
 				Expect(*policy.Enabled).To(BeTrue())
 			}
 		})
+
+		It("should reject filter with unsupported field", func() {
+			filter := "invalid_field='value'"
+			params := &v1alpha1.ListPoliciesParams{
+				Filter: &filter,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject filter with unrecognized policy_type value", func() {
+			filter := "policy_type='TENANT'"
+			params := &v1alpha1.ListPoliciesParams{
+				Filter: &filter,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject filter with multiple AND operators", func() {
+			filter := "policy_type='GLOBAL' AND enabled=true AND enabled=false"
+			params := &v1alpha1.ListPoliciesParams{
+				Filter: &filter,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
 	})
 
 	Describe("Ordering", func() {
@@ -779,6 +809,36 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(resp.JSON200.Policies).NotTo(BeEmpty())
+		})
+
+		It("should reject order_by with unsupported field", func() {
+			orderBy := "id"
+			params := &v1alpha1.ListPoliciesParams{
+				OrderBy: &orderBy,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject order_by with invalid direction", func() {
+			orderBy := "priority foo"
+			params := &v1alpha1.ListPoliciesParams{
+				OrderBy: &orderBy,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject order_by with too many tokens", func() {
+			orderBy := "priority asc extra"
+			params := &v1alpha1.ListPoliciesParams{
+				OrderBy: &orderBy,
+			}
+			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 	})
 
