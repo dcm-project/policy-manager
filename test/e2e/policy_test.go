@@ -266,6 +266,230 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(resp2.JSON409.Status).To(Equal((int32)(409)))
 			Expect(resp2.JSON409.Detail).NotTo(BeNil())
 		})
+
+		It("should allow same DisplayName with different PolicyType on create", func() {
+			sharedName := "Shared Name"
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr(sharedName),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(201)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr(sharedName),
+				PolicyType:  ptr(v1alpha1.USER),
+				Priority:    ptr(int32(202)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respB.JSON201.Id)
+		})
+
+		It("should allow same Priority with different PolicyType on create", func() {
+			prio := int32(210)
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr("Prio G"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(prio),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr("Prio U"),
+				PolicyType:  ptr(v1alpha1.USER),
+				Priority:    ptr(prio),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respB.JSON201.Id)
+		})
+
+		It("should reject duplicate DisplayName and PolicyType on create with 409", func() {
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr("Unique Per Type"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(203)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr("Unique Per Type"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(204)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusConflict))
+			Expect(respB.JSON409).NotTo(BeNil())
+			Expect(respB.JSON409.Detail).NotTo(BeNil())
+			Expect(*respB.JSON409.Detail).To(ContainSubstring("display name"))
+			Expect(*respB.JSON409.Detail).To(ContainSubstring("policy type"))
+		})
+
+		It("should reject duplicate Priority and PolicyType on create with 409", func() {
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr("First"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(220)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr("Second"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(220)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusConflict))
+			Expect(respB.JSON409).NotTo(BeNil())
+			Expect(respB.JSON409.Detail).NotTo(BeNil())
+			Expect(*respB.JSON409.Detail).To(ContainSubstring("priority"))
+			Expect(*respB.JSON409.Detail).To(ContainSubstring("policy type"))
+		})
+
+		It("should reject update to existing DisplayName and PolicyType with 409", func() {
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr("Name A"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(301)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr("Name B"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(302)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusCreated))
+			policyBID := *respB.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyBID)
+
+			patch := v1alpha1.Policy{DisplayName: ptr("Name A")}
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyBID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusConflict))
+			Expect(updateResp.JSON409).NotTo(BeNil())
+			Expect(updateResp.JSON409.Detail).NotTo(BeNil())
+			Expect(*updateResp.JSON409.Detail).To(ContainSubstring("display name"))
+			Expect(*updateResp.JSON409.Detail).To(ContainSubstring("policy type"))
+		})
+
+		It("should reject update to existing Priority and PolicyType with 409", func() {
+			policyA := v1alpha1.Policy{
+				DisplayName: ptr("PA"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(401)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respA, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyA)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respA.StatusCode()).To(Equal(http.StatusCreated))
+			createdPolicyIDs = append(createdPolicyIDs, *respA.JSON201.Id)
+
+			policyB := v1alpha1.Policy{
+				DisplayName: ptr("PB"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(402)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			respB, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policyB)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respB.StatusCode()).To(Equal(http.StatusCreated))
+			policyBID := *respB.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyBID)
+
+			patch := v1alpha1.Policy{Priority: ptr(int32(401))}
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyBID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusConflict))
+			Expect(updateResp.JSON409).NotTo(BeNil())
+			Expect(updateResp.JSON409.Detail).NotTo(BeNil())
+			Expect(*updateResp.JSON409.Detail).To(ContainSubstring("priority"))
+			Expect(*updateResp.JSON409.Detail).To(ContainSubstring("policy type"))
+		})
+
+		It("should allow update keeping own DisplayName", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Stable Name"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(310)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{Description: ptr("Updated")}
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("should allow update keeping own Priority", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Stable"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(410)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{DisplayName: ptr("Stable Renamed")}
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusOK))
+		})
 	})
 
 	Describe("List and Pagination", func() {
