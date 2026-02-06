@@ -685,7 +685,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 		})
 	})
 
-	Describe("Error Cases", func() {
+	Describe("Operations on non-existent policies", func() {
 		It("should return 404 for non-existent policy GET", func() {
 			resp, err := apiClient.GetPolicyWithResponse(ctx, "non-existent-id")
 			Expect(err).NotTo(HaveOccurred())
