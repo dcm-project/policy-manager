@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -712,18 +713,130 @@ var _ = Describe("Policy CRUD Operations", func() {
 			policyID := *createResp.JSON201.Id
 			createdPolicyIDs = append(createdPolicyIDs, policyID)
 
-			// Try to change policy_type - should be ignored or rejected
+			// Try to change policy_type - must be rejected with 400
 			update := v1alpha1.Policy{
-				PolicyType: ptr(v1alpha1.USER), // Try to change type
+				PolicyType: ptr(v1alpha1.USER),
 			}
 
-			_, err = apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
 
-			// Get the policy to verify type didn't change
-			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+		It("should reject PATCH when path is different from current", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Path Reject Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(210)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(*getResp.JSON200.PolicyType).To(Equal(v1alpha1.GLOBAL))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			update := v1alpha1.Policy{
+				Path:        ptr("policies/other-id"),
+				DisplayName: ptr("Updated"),
+			}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject PATCH when id is different from current", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("ID Reject Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(211)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			update := v1alpha1.Policy{
+				Id:          ptr("other-id"),
+				DisplayName: ptr("Updated"),
+			}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject PATCH when create_time is different from current", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("CreateTime Reject Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(212)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			otherTime := time.Now().Add(-24 * time.Hour)
+			update := v1alpha1.Policy{
+				CreateTime:  ptr(otherTime),
+				DisplayName: ptr("Updated"),
+			}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject PATCH when update_time is different from current", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("UpdateTime Reject Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(213)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			otherTime := time.Now().Add(24 * time.Hour)
+			update := v1alpha1.Policy{
+				UpdateTime:  ptr(otherTime),
+				DisplayName: ptr("Updated"),
+			}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should accept PATCH when immutable field is same as current (with mutable change)", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Same Value Original"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(214)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			// Include policy_type with same value as current, plus a mutable change
+			update := v1alpha1.Policy{
+				PolicyType:  createResp.JSON201.PolicyType,
+				DisplayName: ptr("Same Value Updated"),
+			}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, update)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(resp.JSON200).NotTo(BeNil())
+			Expect(*resp.JSON200.DisplayName).To(Equal("Same Value Updated"))
+			Expect(*resp.JSON200.PolicyType).To(Equal(v1alpha1.GLOBAL))
 		})
 
 		It("should update only mutable fields", func() {
