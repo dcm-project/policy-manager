@@ -24,7 +24,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 		createdPolicyIDs = nil
 	})
 
-	Describe("Basic CRUD", func() {
+	Describe("Basic successful CRUD operations", func() {
 		It("should create policy with server-generated UUID", func() {
 			policy := v1alpha1.Policy{
 				DisplayName: ptr("Test Policy"),
