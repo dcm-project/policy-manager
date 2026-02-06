@@ -557,7 +557,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 		})
 	})
 
-	Describe("Validation", func() {
+	Describe("Validation when creating", func() {
 		It("should reject missing required fields", func() {
 			policy := v1alpha1.Policy{
 				DisplayName: ptr("Invalid Policy"),
