@@ -614,6 +614,88 @@ var _ = Describe("Policy CRUD Operations", func() {
 		})
 	})
 
+	Describe("Validation when updating (patch)", func() {
+		It("should reject patch with empty rego_code", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Patch Validation Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(300)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{RegoCode: ptr("")}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject patch with whitespace-only rego_code", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Patch Whitespace Rego Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(301)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{RegoCode: ptr("   \t\n ")}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject patch with priority too low", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Patch Priority Low Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(302)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{Priority: ptr(int32(0))}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should reject patch with priority too high", func() {
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Patch Priority High Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(303)),
+				Enabled:     ptr(true),
+				RegoCode:    ptr("package test\nallow = true"),
+			}
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			patch := v1alpha1.Policy{Priority: ptr(int32(1001))}
+			resp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+	})
+
 	Describe("Immutable Fields", func() {
 		It("should not allow policy_type to be changed via PATCH", func() {
 			// Create a GLOBAL policy
