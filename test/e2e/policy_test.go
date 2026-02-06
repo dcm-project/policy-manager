@@ -167,7 +167,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(resp.StatusCode()).To(Equal(http.StatusCreated), "ID %s should be valid", id)
 				createdPolicyIDs = append(createdPolicyIDs, *resp.JSON201.Id)
-				Expect(*resp.JSON201.Id).To(Equal(id),"ID %s should be valid and used", id)
+				Expect(*resp.JSON201.Id).To(Equal(id), "ID %s should be valid and used", id)
 			}
 		})
 
