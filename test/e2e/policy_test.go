@@ -14,6 +14,11 @@ import (
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 )
 
+var (
+	maxPolicyPriority = int32(1000)
+	minPolicyPriority = int32(1)
+)
+
 var _ = Describe("Policy CRUD Operations", func() {
 	var createdPolicyIDs []string
 
@@ -854,11 +859,11 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		It("should reject priority out of range (too low)", func() {
+		It(fmt.Sprintf("should reject priority lower than %d (minimum)", minPolicyPriority), func() {
 			policy := v1alpha1.Policy{
 				DisplayName: ptr("Invalid Priority Too Low Policy"),
 				PolicyType:  ptr(v1alpha1.GLOBAL),
-				Priority:    ptr(int32(0)), // Below minimum
+				Priority:    ptr(minPolicyPriority - 1), // Below minimum
 				Enabled:     ptr(true),
 				RegoCode:    ptr("package test\nallow = true"),
 			}
@@ -868,11 +873,11 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(resp.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		It("should reject priority out of range (too high)", func() {
+		It(fmt.Sprintf("should reject priority higher than %d (maximum)", maxPolicyPriority), func() {
 			policy := v1alpha1.Policy{
 				DisplayName: ptr("Invalid Priority Too High Policy"),
 				PolicyType:  ptr(v1alpha1.GLOBAL),
-				Priority:    ptr(int32(1001)), // Above maximum
+				Priority:    ptr(maxPolicyPriority + 1), // Above maximum
 				Enabled:     ptr(true),
 				RegoCode:    ptr("package test\nallow = true"),
 			}
