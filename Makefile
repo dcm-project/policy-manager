@@ -2,7 +2,7 @@ BINARY_NAME := policy-manager
 # COMPOSE: compose command. Set to override; otherwise auto-detect podman-compose or docker-compose.
 COMPOSE ?= $(shell command -v podman-compose >/dev/null 2>&1 && echo podman-compose || \
 	(command -v docker-compose >/dev/null 2>&1 && echo docker-compose || \
-	(echo "Neither podman-compose nor docker-compose found" >&2 && exit 1)))
+	(echo "docker compose")))
 
 build:
 	go build -o bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
