@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"strings"
 
-	. "github.com/dcm-project/policy-manager/api/internal/engine"
+	. "github.com/dcm-project/policy-manager/api/engine"
 )
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function

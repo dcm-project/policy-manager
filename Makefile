@@ -54,34 +54,34 @@ generate-crud-api: generate-types generate-spec generate-server generate-client
 # Engine API code generation targets
 generate-engine-types:
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
-		--config=api/internal/engine/types.gen.cfg \
-		-o api/internal/engine/types.gen.go \
-		api/internal/engine/openapi.yaml
+		--config=api/engine/types.gen.cfg \
+		-o api/engine/types.gen.go \
+		api/engine/openapi.yaml
 
 generate-engine-spec:
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
-		--config=api/internal/engine/spec.gen.cfg \
-		-o api/internal/engine/spec.gen.go \
-		api/internal/engine/openapi.yaml
+		--config=api/engine/spec.gen.cfg \
+		-o api/engine/spec.gen.go \
+		api/engine/openapi.yaml
 
 generate-engine-server:
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
 		--config=internal/api/engine/server.gen.cfg \
 		-o internal/api/engine/server.gen.go \
-		api/internal/engine/openapi.yaml
+		api/engine/openapi.yaml
 
 generate-engine-client:
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
 		--config=pkg/engineclient/client.gen.cfg \
 		-o pkg/engineclient/client.gen.go \
-		api/internal/engine/openapi.yaml
+		api/engine/openapi.yaml
 
 generate-engine-api: generate-engine-types generate-engine-spec generate-engine-server generate-engine-client
 
 generate-api: generate-crud-api generate-engine-api
 
 check-aep-engine:
-	spectral lint --fail-severity=warn ./api/internal/engine/openapi.yaml
+	spectral lint --fail-severity=warn ./api/engine/openapi.yaml
 
 check-aep-api:
 	spectral lint --fail-severity=warn ./api/v1alpha1/openapi.yaml
