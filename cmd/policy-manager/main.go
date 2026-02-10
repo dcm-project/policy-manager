@@ -6,10 +6,13 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/dcm-project/policy-manager/internal/apiserver"
 	"github.com/dcm-project/policy-manager/internal/config"
+	"github.com/dcm-project/policy-manager/internal/engineserver"
+	"github.com/dcm-project/policy-manager/internal/handlers/engine"
 	"github.com/dcm-project/policy-manager/internal/handlers/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/service"
 	"github.com/dcm-project/policy-manager/internal/store"
@@ -39,26 +42,63 @@ func main() {
 	// Create service
 	policyService := service.NewPolicyService(dataStore)
 
-	// Create handler
+	// Create public API handler
 	policyHandler := v1alpha1.NewPolicyHandler(policyService)
 
-	// Create TCP listener
-	listener, err := net.Listen("tcp", cfg.Service.BindAddress)
+	// Create public API TCP listener
+	publicListener, err := net.Listen("tcp", cfg.Service.BindAddress)
 	if err != nil {
-		log.Fatalf("Failed to create listener: %v", err)
+		log.Fatalf("Failed to create public API listener: %v", err)
 	}
-	defer listener.Close()
+	defer publicListener.Close()
 
-	// Create server
-	srv := apiserver.New(cfg, listener, policyHandler)
+	// Create public API server
+	publicSrv := apiserver.New(cfg, publicListener, policyHandler)
+
+	// Create engine API handler
+	engineHandler := engine.NewHandler()
+
+	// Create engine API TCP listener
+	engineListener, err := net.Listen("tcp", cfg.Service.EngineBindAddress)
+	if err != nil {
+		log.Fatalf("Failed to create engine API listener: %v", err)
+	}
+	defer engineListener.Close()
+
+	// Create engine API server
+	engineSrv := engineserver.New(cfg, engineListener, engineHandler)
 
 	// Setup signal handling for graceful shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	if err := srv.Run(ctx); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+	// Run both servers concurrently
+	var wg sync.WaitGroup
+	errChan := make(chan error, 2)
+
+	wg.Go(func() {
+		if err := publicSrv.Run(ctx); err != nil {
+			errChan <- err
+		}
+	})
+
+	wg.Go(func() {
+		if err := engineSrv.Run(ctx); err != nil {
+			errChan <- err
+		}
+	})
+
+	// Wait for first error or completion
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	for err := range errChan {
+		if err != nil {
+			log.Fatalf("Server error: %v", err)
+		}
 	}
 
-	log.Println("Server stopped")
+	log.Println("All servers stopped")
 }
