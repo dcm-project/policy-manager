@@ -1446,6 +1446,37 @@ allow if {
 			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
 			Expect(*getResp.JSON200.RegoCode).To(Equal(updatedRego), "GET should return updated Rego code")
 		})
+		
+		It("should reject invalid Rego on update and preserve original code", func() {
+			originalRego := "package authz\n\ndefault allow = false\n\nallow if { input.user == \"admin\" }"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Invalid Update Rego Test"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(301)),
+				Enabled:     ptr(true),
+				RegoCode:    &originalRego,
+			}
+
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			createdPolicyIDs = append(createdPolicyIDs, policyID)
+
+			invalidRego := "this is not valid rego syntax!!!"
+			patch := v1alpha1.Policy{RegoCode: &invalidRego}
+			updateResp, err := apiClient.UpdatePolicyWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, policyID, patch)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updateResp.StatusCode()).To(Equal(http.StatusBadRequest), "Should reject invalid Rego on update")
+			Expect(updateResp.JSON400).NotTo(BeNil())
+			Expect(string(updateResp.JSON400.Type)).To(Equal("INVALID_ARGUMENT"))
+
+			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
+			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
+			Expect(*getResp.JSON200.RegoCode).To(Equal(originalRego), "Original Rego code should be unchanged after rejected update")
+		})
 
 		It("should return empty rego_code in LIST responses", func() {
 			regoCode := "package test\n\ndefault allow = false"
