@@ -3,6 +3,7 @@
 package e2e_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
+	"github.com/dcm-project/policy-manager/internal/opa"
 )
 
 var (
@@ -1446,7 +1448,7 @@ allow if {
 			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
 			Expect(*getResp.JSON200.RegoCode).To(Equal(updatedRego), "GET should return updated Rego code")
 		})
-		
+
 		It("should reject invalid Rego on update and preserve original code", func() {
 			originalRego := "package authz\n\ndefault allow = false\n\nallow if { input.user == \"admin\" }"
 			policy := v1alpha1.Policy{
@@ -1476,6 +1478,41 @@ allow if {
 			Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(getResp.JSON200.RegoCode).NotTo(BeNil())
 			Expect(*getResp.JSON200.RegoCode).To(Equal(originalRego), "Original Rego code should be unchanged after rejected update")
+		})
+
+		It("should delete policy and remove Rego from OPA", func() {
+			regoCode := "package authz\n\ndefault allow = false\n\nallow if { input.role == \"admin\" }"
+			policy := v1alpha1.Policy{
+				DisplayName: ptr("Delete OPA Test Policy"),
+				PolicyType:  ptr(v1alpha1.GLOBAL),
+				Priority:    ptr(int32(302)),
+				Enabled:     ptr(true),
+				RegoCode:    &regoCode,
+			}
+
+			createResp, err := apiClient.CreatePolicyWithResponse(ctx, &v1alpha1.CreatePolicyParams{}, policy)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
+			policyID := *createResp.JSON201.Id
+			// Do not append to createdPolicyIDs - we are testing delete
+
+			// Verify policy exists in OPA before delete
+			_, err = opaClient.GetPolicy(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred(), "Policy should exist in OPA after create")
+
+			deleteResp, err := apiClient.DeletePolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteResp.StatusCode()).To(Equal(http.StatusNoContent), "Delete should succeed")
+
+			// Verify policy is gone from API
+			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
+
+			// Verify Rego was removed from OPA
+			_, err = opaClient.GetPolicy(ctx, policyID)
+			Expect(err).To(HaveOccurred(), "Policy should no longer exist in OPA after delete")
+			Expect(errors.Is(err, opa.ErrPolicyNotFound)).To(BeTrue(), "OPA should return policy not found")
 		})
 
 		It("should return empty rego_code in LIST responses", func() {
