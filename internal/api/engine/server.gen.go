@@ -44,9 +44,10 @@ type EvaluateRequest struct {
 
 // EvaluateResponse defines model for EvaluateResponse.
 type EvaluateResponse struct {
+	EvaluatedServiceInstance ServiceInstance `json:"evaluated_service_instance"`
+
 	// SelectedProvider Service provider selected by policies
-	SelectedProvider string          `json:"selected_provider"`
-	ServiceInstance  ServiceInstance `json:"service_instance"`
+	SelectedProvider string `json:"selected_provider"`
 
 	// Status APPROVED - Request unchanged by policies
 	// MODIFIED - Request was modified by policies

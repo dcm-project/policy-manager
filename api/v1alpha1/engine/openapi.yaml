@@ -71,11 +71,11 @@ components:
     EvaluateResponse:
       type: object
       required:
-        - service_instance
+        - evaluated_service_instance
         - selected_provider
         - status
       properties:
-        service_instance:
+        evaluated_service_instance:
           $ref: '#/components/schemas/ServiceInstance'
         selected_provider:
           type: string
