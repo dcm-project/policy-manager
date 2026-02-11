@@ -54,7 +54,7 @@ func (c *HTTPClient) StorePolicy(ctx context.Context, policyID string, regoCode 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, strings.NewReader(regoCode))
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrOPAUnavailable, err)
+		return fmt.Errorf("%w: %v", ErrClientInternal, err)
 	}
 	req.Header.Set("Content-Type", "text/plain")
 
@@ -93,7 +93,7 @@ func (c *HTTPClient) GetPolicy(ctx context.Context, policyID string) (string, er
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrOPAUnavailable, err)
+		return "", fmt.Errorf("%w: %v", ErrClientInternal, err)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -120,11 +120,11 @@ func (c *HTTPClient) GetPolicy(ctx context.Context, policyID string) (string, er
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to read response: %v", ErrOPAUnavailable, err)
+		return "", fmt.Errorf("%w: failed to read response: %v", ErrClientInternal, err)
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("%w: failed to parse response: %v", ErrOPAUnavailable, err)
+		return "", fmt.Errorf("%w: failed to parse response: %v", ErrClientInternal, err)
 	}
 
 	return result.Result.Raw, nil
@@ -136,7 +136,7 @@ func (c *HTTPClient) DeletePolicy(ctx context.Context, policyID string) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrOPAUnavailable, err)
+		return fmt.Errorf("%w: %v", ErrClientInternal, err)
 	}
 
 	resp, err := c.httpClient.Do(req)

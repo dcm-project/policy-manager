@@ -15,6 +15,9 @@ var (
 
 	// ErrOPAUnavailable indicates that the OPA server is unreachable or returned an error
 	ErrOPAUnavailable = errors.New("OPA service unavailable")
+
+	// ErrClientInternal indicates that an internal error occurred in the client
+	ErrClientInternal = errors.New("client internal error")
 )
 
 // OPAError represents an error response from the OPA server

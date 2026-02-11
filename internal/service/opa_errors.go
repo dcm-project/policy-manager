@@ -37,6 +37,14 @@ func handleOPAError(err error, operation string) *ServiceError {
 		)
 	}
 
+	if errors.Is(err, opa.ErrClientInternal) {
+		return NewInternalError(
+			fmt.Sprintf("OPA Client internal error during %s", operation),
+			"An unexpected error occurred while communicating with OPA",
+			err,
+		)
+	}
+
 	// Generic OPA error
 	return NewInternalError(
 		fmt.Sprintf("OPA error during %s", operation),
