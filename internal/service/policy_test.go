@@ -1088,6 +1088,30 @@ var _ = Describe("PolicyService", func() {
 
 	Describe("OPA Integration", func() {
 		Describe("CreatePolicy", func() {
+			It("should store valid Rego in OPA and create policy in DB", func() {
+				clientID := "opa-create-success"
+				regoCode := "package test\ndefault allow = false"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("OPA Create Success"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr(regoCode),
+				}
+
+				created, err := policyService.CreatePolicy(ctx, policy, &clientID)
+
+				Expect(err).To(BeNil())
+				Expect(created).NotTo(BeNil())
+				Expect(created.Id).NotTo(BeNil())
+				Expect(*created.Id).To(Equal(clientID))
+				Expect(opaStorage).To(HaveKey(clientID))
+				Expect(opaStorage[clientID]).To(Equal(regoCode))
+				// Verify GET returns policy with Rego from OPA
+				retrieved, err := policyService.GetPolicy(ctx, clientID)
+				Expect(err).To(BeNil())
+				Expect(retrieved.RegoCode).NotTo(BeNil())
+				Expect(*retrieved.RegoCode).To(Equal(regoCode))
+			})
+
 			It("should reject invalid Rego code", func() {
 				// Override mock to simulate OPA validation error
 				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
@@ -1152,6 +1176,28 @@ var _ = Describe("PolicyService", func() {
 		})
 
 		Describe("GetPolicy", func() {
+			It("should return policy with Rego from OPA", func() {
+				clientID := "opa-get-success"
+				regoCode := "package test\ndefault allow = true"
+				policy := v1alpha1.Policy{
+					DisplayName: strPtr("OPA Get Success"),
+					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+					RegoCode:    strPtr(regoCode),
+				}
+				_, err := policyService.CreatePolicy(ctx, policy, &clientID)
+				Expect(err).To(BeNil())
+				Expect(opaStorage[clientID]).To(Equal(regoCode))
+
+				retrieved, err := policyService.GetPolicy(ctx, clientID)
+
+				Expect(err).To(BeNil())
+				Expect(retrieved).NotTo(BeNil())
+				Expect(retrieved.Id).NotTo(BeNil())
+				Expect(*retrieved.Id).To(Equal(clientID))
+				Expect(retrieved.RegoCode).NotTo(BeNil())
+				Expect(*retrieved.RegoCode).To(Equal(regoCode))
+			})
+
 			It("should return INTERNAL error when Rego missing in OPA", func() {
 				// Create policy in DB but not in OPA
 				clientID := "missing-rego-test"
