@@ -83,8 +83,8 @@ var _ = Describe("OPA Client", func() {
 				Expect(r.Method).To(Equal(http.MethodGet))
 				Expect(r.URL.Path).To(Equal("/v1/policies/test-policy"))
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
-					"result": map[string]interface{}{
+				response := map[string]any{
+					"result": map[string]any{
 						"raw": expectedRego,
 					},
 				}
@@ -131,6 +131,20 @@ var _ = Describe("OPA Client", func() {
 			_, err := client.GetPolicy(ctx, "test-policy")
 
 			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
+		})
+
+		It("returns ErrClientInternal when failing to parse response", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("not a valid JSON"))
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			_, err := client.GetPolicy(ctx, "test-policy")
+
+			Expect(err).To(MatchError(ContainSubstring("client internal error")))
+			Expect(err).To(MatchError(ContainSubstring("failed to parse response")))
 		})
 	})
 
