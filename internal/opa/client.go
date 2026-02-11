@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	opaEndpointPattern = "%s/v1/policies/%s"
+)
+
 // Client defines the interface for interacting with OPA
 type Client interface {
 	// StorePolicy stores or updates a policy in OPA
@@ -46,7 +50,7 @@ func NewClient(baseURL string, timeout time.Duration) Client {
 
 // StorePolicy stores or updates a policy in OPA using PUT /v1/policies/{id}
 func (c *HTTPClient) StorePolicy(ctx context.Context, policyID string, regoCode string) error {
-	url := fmt.Sprintf("%s/v1/policies/%s", c.baseURL, policyID)
+	url := fmt.Sprintf(opaEndpointPattern, c.baseURL, policyID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, strings.NewReader(regoCode))
 	if err != nil {
@@ -81,7 +85,7 @@ func (c *HTTPClient) StorePolicy(ctx context.Context, policyID string, regoCode 
 
 // GetPolicy retrieves a policy from OPA using GET /v1/policies/{id}
 func (c *HTTPClient) GetPolicy(ctx context.Context, policyID string) (string, error) {
-	url := fmt.Sprintf("%s/v1/policies/%s", c.baseURL, policyID)
+	url := fmt.Sprintf(opaEndpointPattern, c.baseURL, policyID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -124,7 +128,7 @@ func (c *HTTPClient) GetPolicy(ctx context.Context, policyID string) (string, er
 
 // DeletePolicy removes a policy from OPA using DELETE /v1/policies/{id}
 func (c *HTTPClient) DeletePolicy(ctx context.Context, policyID string) error {
-	url := fmt.Sprintf("%s/v1/policies/%s", c.baseURL, policyID)
+	url := fmt.Sprintf(opaEndpointPattern, c.baseURL, policyID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
