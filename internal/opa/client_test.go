@@ -180,13 +180,4 @@ var _ = Describe("OPA Client", func() {
 			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
 		})
 	})
-
-	Describe("Close", func() {
-		It("releases resources without error", func() {
-			client := opa.NewClient("http://localhost:8181", 5*time.Second)
-			err := client.Close()
-
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
 })

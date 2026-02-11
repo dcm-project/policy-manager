@@ -26,9 +26,6 @@ type Client interface {
 	// Returns nil even if the policy doesn't exist (idempotent)
 	// Returns ErrOPAUnavailable if OPA is unreachable
 	DeletePolicy(ctx context.Context, policyID string) error
-
-	// Close releases any resources held by the client
-	Close() error
 }
 
 // HTTPClient implements the Client interface using HTTP requests to OPA
@@ -147,12 +144,4 @@ func (c *HTTPClient) DeletePolicy(ctx context.Context, policyID string) error {
 
 	body, _ := io.ReadAll(resp.Body)
 	return fmt.Errorf("%w: status %d: %s", ErrOPAUnavailable, resp.StatusCode, string(body))
-}
-
-// Close releases any resources held by the client
-func (c *HTTPClient) Close() error {
-	// HTTP client doesn't need explicit cleanup, but we implement this
-	// for interface completeness and potential future connection pooling
-	c.httpClient.CloseIdleConnections()
-	return nil
 }

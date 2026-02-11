@@ -46,11 +46,6 @@ func main() {
 
 	// Initialize OPA client
 	opaClient := opa.NewClient(cfg.OPA.URL, opaTimeout)
-	defer func() {
-		if err := opaClient.Close(); err != nil {
-			log.Printf("Error closing OPA client: %v", err)
-		}
-	}()
 
 	// Create service
 	policyService := service.NewPolicyService(dataStore, opaClient)
