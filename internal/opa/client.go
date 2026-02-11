@@ -64,6 +64,10 @@ func (c *HTTPClient) StorePolicy(ctx context.Context, policyID string, regoCode 
 	}
 	defer resp.Body.Close()
 
+	return handleStorePolicyResponse(resp)
+}
+
+func handleStorePolicyResponse(resp *http.Response) error {
 	if resp.StatusCode == http.StatusOK {
 		return nil
 	}
@@ -141,6 +145,10 @@ func (c *HTTPClient) DeletePolicy(ctx context.Context, policyID string) error {
 	}
 	defer resp.Body.Close()
 
+	return handleDeletePolicyResponse(resp)
+}
+
+func handleDeletePolicyResponse(resp *http.Response) error {
 	// DELETE is idempotent - both 200 and 404 are success
 	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
 		return nil
