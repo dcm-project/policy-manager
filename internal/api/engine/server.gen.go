@@ -67,8 +67,20 @@ type ServiceInstance struct {
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // InternalServerError defines model for InternalServerError.
 type InternalServerError = Error
+
+// PolicyConflict defines model for PolicyConflict.
+type PolicyConflict = Error
+
+// Rejected defines model for Rejected.
+type Rejected = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
 
 // EvaluateRequestJSONRequestBody defines body for EvaluateRequest for application/json ContentType.
 type EvaluateRequestJSONRequestBody = EvaluateRequest
@@ -235,7 +247,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 type BadRequestJSONResponse Error
 
+type ForbiddenJSONResponse Error
+
 type InternalServerErrorJSONResponse Error
+
+type PolicyConflictJSONResponse Error
+
+type RejectedJSONResponse Error
+
+type UnauthorizedJSONResponse Error
 
 type EvaluateRequestRequestObject struct {
 	Body *EvaluateRequestJSONRequestBody
@@ -263,7 +283,16 @@ func (response EvaluateRequest400JSONResponse) VisitEvaluateRequestResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type EvaluateRequest403JSONResponse Error
+type EvaluateRequest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response EvaluateRequest401JSONResponse) VisitEvaluateRequestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type EvaluateRequest403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response EvaluateRequest403JSONResponse) VisitEvaluateRequestResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -272,11 +301,20 @@ func (response EvaluateRequest403JSONResponse) VisitEvaluateRequestResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type EvaluateRequest422JSONResponse Error
+type EvaluateRequest406JSONResponse struct{ RejectedJSONResponse }
 
-func (response EvaluateRequest422JSONResponse) VisitEvaluateRequestResponse(w http.ResponseWriter) error {
+func (response EvaluateRequest406JSONResponse) VisitEvaluateRequestResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(422)
+	w.WriteHeader(406)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type EvaluateRequest409JSONResponse struct{ PolicyConflictJSONResponse }
+
+func (response EvaluateRequest409JSONResponse) VisitEvaluateRequestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }

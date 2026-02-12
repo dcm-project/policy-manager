@@ -33,18 +33,14 @@ paths:
                 $ref: '#/components/schemas/EvaluateResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
-          description: Policy rejected the request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '422':
-          description: Policy conflict error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/Rejected'
+        '409':
+          $ref: '#/components/responses/PolicyConflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -120,6 +116,59 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            type: BAD_REQUEST
+            status: 400
+            title: Invalid request
+            detail: Invalid request parameters
+
+    Unauthorized:
+      description: Authentication is required but was not provided or is invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: UNAUTHENTICATED
+            status: 401
+            title: Authentication required
+            detail: Valid authentication credentials are required to access this resource
+
+    Forbidden:
+      description: The authenticated user does not have permission to perform this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: PERMISSION_DENIED
+            status: 403
+            title: Permission denied
+            detail: You do not have sufficient permissions to perform this operation
+
+    Rejected:
+      description: Policy rejected the request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: REJECTED
+            status: 406
+            title: Policy rejected
+            detail: Policy explicitly rejected the request
+
+    PolicyConflict:
+      description: Policy conflict between lower-priority and higher-priority policies
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            type: POLICY_CONFLICT
+            status: 409
+            title: Policy conflict
+            detail: Lower-priority policy tried to override higher-priority policy
 
     InternalServerError:
       description: Internal server error

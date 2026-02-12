@@ -57,8 +57,20 @@ type ServiceInstance struct {
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
 // InternalServerError defines model for InternalServerError.
 type InternalServerError = Error
+
+// PolicyConflict defines model for PolicyConflict.
+type PolicyConflict = Error
+
+// Rejected defines model for Rejected.
+type Rejected = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
 
 // EvaluateRequestJSONRequestBody defines body for EvaluateRequest for application/json ContentType.
 type EvaluateRequestJSONRequestBody = EvaluateRequest

@@ -213,8 +213,10 @@ type EvaluateRequestResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *EvaluateResponse
 	JSON400      *BadRequest
-	JSON403      *Error
-	JSON422      *Error
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON406      *Rejected
+	JSON409      *PolicyConflict
 	JSON500      *InternalServerError
 }
 
@@ -279,19 +281,33 @@ func ParseEvaluateRequestResponse(rsp *http.Response) (*EvaluateRequestResponse,
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Error
+		var dest Forbidden
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON403 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest Error
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 406:
+		var dest Rejected
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON422 = &dest
+		response.JSON406 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PolicyConflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError
