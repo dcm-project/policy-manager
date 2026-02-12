@@ -139,7 +139,7 @@ func NewEvaluateRequestRequestWithBody(server string, contentType string, body i
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/engine:evaluateRequest")
+	operationPath := fmt.Sprintf("/policies:evaluateRequest")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}

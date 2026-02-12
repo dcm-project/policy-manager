@@ -88,7 +88,7 @@ type EvaluateRequestJSONRequestBody = EvaluateRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Evaluate request payload against policies
-	// (POST /engine:evaluateRequest)
+	// (POST /policies:evaluateRequest)
 	EvaluateRequest(w http.ResponseWriter, r *http.Request)
 }
 
@@ -97,7 +97,7 @@ type ServerInterface interface {
 type Unimplemented struct{}
 
 // Evaluate request payload against policies
-// (POST /engine:evaluateRequest)
+// (POST /policies:evaluateRequest)
 func (_ Unimplemented) EvaluateRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -239,7 +239,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/engine:evaluateRequest", wrapper.EvaluateRequest)
+		r.Post(options.BaseURL+"/policies:evaluateRequest", wrapper.EvaluateRequest)
 	})
 
 	return r
@@ -333,7 +333,7 @@ func (response EvaluateRequest500JSONResponse) VisitEvaluateRequestResponse(w ht
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Evaluate request payload against policies
-	// (POST /engine:evaluateRequest)
+	// (POST /policies:evaluateRequest)
 	EvaluateRequest(ctx context.Context, request EvaluateRequestRequestObject) (EvaluateRequestResponseObject, error)
 }
 
