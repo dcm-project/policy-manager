@@ -71,7 +71,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	log.Printf("Starting server on %s", s.listener.Addr())
 	if err := srv.Serve(s.listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return fmt.Errorf("failed to serve policies API server: %w", err)
 	}
 
 	log.Println("Server stopped")

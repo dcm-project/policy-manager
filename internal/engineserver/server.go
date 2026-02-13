@@ -69,9 +69,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	log.Printf("Starting engine server on %s", s.listener.Addr())
 	if err := srv.Serve(s.listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return fmt.Errorf("failed to serve engine API server: %w", err)
 	}
 
-	log.Println("Engine server stopped")
+	log.Println("Engine server stopped successfully")
 	return nil
 }

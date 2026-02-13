@@ -18,6 +18,10 @@ import (
 	"github.com/dcm-project/policy-manager/internal/store"
 )
 
+type Server interface {
+	Run(ctx context.Context) error
+}
+
 func main() {
 	// Load configuration from environment
 	cfg, err := config.Load()
@@ -68,37 +72,40 @@ func main() {
 	// Create private engine API server
 	engineSrv := engineserver.New(cfg, engineListener, engineHandler)
 
+	if err := runServers([]Server{publicSrv, engineSrv}); err != nil {
+		log.Fatalf("Failed to run servers: %v", err)
+	}
+}
+
+func runServers(servers []Server) error {
 	// Setup signal handling for graceful shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Run both servers concurrently
 	var wg sync.WaitGroup
-	errChan := make(chan error, 2)
+	errChan := make(chan error, len(servers))
+	for _, server := range servers {
+		wg.Add(1)
+		go func(server Server) {
+			defer wg.Done()
+			if err := server.Run(ctx); err != nil {
+				errChan <- err
+			}
+		}(server)
+	}
 
-	wg.Go(func() {
-		if err := publicSrv.Run(ctx); err != nil {
-			errChan <- err
-		}
-	})
-
-	wg.Go(func() {
-		if err := engineSrv.Run(ctx); err != nil {
-			errChan <- err
-		}
-	})
-
-	// Wait for first error or completion
 	go func() {
 		wg.Wait()
 		close(errChan)
 	}()
 
+	var firstErr error
 	for err := range errChan {
-		if err != nil {
-			log.Fatalf("Server error: %v", err)
+		if err != nil && firstErr == nil {
+			firstErr = err
+			cancel()
 		}
 	}
 
-	log.Println("All servers stopped")
+	return firstErr
 }
