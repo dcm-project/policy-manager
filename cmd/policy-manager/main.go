@@ -55,17 +55,17 @@ func main() {
 	// Create public API server
 	publicSrv := apiserver.New(cfg, publicListener, policyHandler)
 
-	// Create engine API handler
+	// Create private engine API handler
 	engineHandler := engine.NewHandler()
 
-	// Create engine API TCP listener
+	// Create private engine API TCP listener
 	engineListener, err := net.Listen("tcp", cfg.Service.EngineBindAddress)
 	if err != nil {
 		log.Fatalf("Failed to create engine API listener: %v", err)
 	}
 	defer engineListener.Close()
 
-	// Create engine API server
+	// Create private engine API server
 	engineSrv := engineserver.New(cfg, engineListener, engineHandler)
 
 	// Setup signal handling for graceful shutdown
