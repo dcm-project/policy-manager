@@ -3,11 +3,13 @@ package engineserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/dcm-project/policy-manager/api/v1alpha1/engine"
 	engineserver "github.com/dcm-project/policy-manager/internal/api/engine"
 	"github.com/dcm-project/policy-manager/internal/config"
 	"github.com/go-chi/chi/v5"
@@ -38,8 +40,16 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
-	// Mount at /api/v1alpha1 base path
-	baseURL := "/api/v1alpha1"
+	swagger, err := engine.GetSwagger()
+	if err != nil {
+		return fmt.Errorf("failed to load swagger spec: %w", err)
+	}
+
+	baseURL := ""
+	if len(swagger.Servers) > 0 {
+		baseURL = swagger.Servers[0].URL
+	}
+
 	engineserver.HandlerFromMuxWithBaseURL(
 		engineserver.NewStrictHandler(s.handler, nil),
 		router,
