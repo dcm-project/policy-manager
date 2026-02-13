@@ -23,16 +23,22 @@ type Server interface {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	// Load configuration from environment
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Printf("Failed to load configuration: %v", err)
+		return 1
 	}
 
 	// Initialize database
 	db, err := store.InitDB(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		log.Printf("Failed to initialize database: %v", err)
+		return 1
 	}
 
 	// Create store
@@ -52,7 +58,8 @@ func main() {
 	// Create public API TCP listener
 	publicListener, err := net.Listen("tcp", cfg.Service.BindAddress)
 	if err != nil {
-		log.Fatalf("Failed to create public API listener: %v", err)
+		log.Printf("Failed to create public API listener: %v", err)
+		return 1
 	}
 	defer publicListener.Close()
 
@@ -65,7 +72,8 @@ func main() {
 	// Create private engine API TCP listener
 	engineListener, err := net.Listen("tcp", cfg.Service.EngineBindAddress)
 	if err != nil {
-		log.Fatalf("Failed to create engine API listener: %v", err)
+		log.Printf("Failed to create engine API listener: %v", err)
+		return 1
 	}
 	defer engineListener.Close()
 
@@ -73,8 +81,11 @@ func main() {
 	engineSrv := engineserver.New(cfg, engineListener, engineHandler)
 
 	if err := runServers([]Server{publicSrv, engineSrv}); err != nil {
-		log.Fatalf("Failed to run servers: %v", err)
+		log.Printf("Failed to run servers: %v", err)
+		return 1
 	}
+
+	return 0
 }
 
 func runServers(servers []Server) error {
