@@ -81,7 +81,6 @@ func run() int {
 	engineSrv := engineserver.New(cfg, engineListener, engineHandler)
 
 	if err := runServers([]Server{publicSrv, engineSrv}); err != nil {
-		log.Printf("Failed to run servers: %v", err)
 		return 1
 	}
 
@@ -112,9 +111,12 @@ func runServers(servers []Server) error {
 
 	var firstErr error
 	for err := range errChan {
-		if err != nil && firstErr == nil {
-			firstErr = err
-			cancel()
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+				cancel()
+			}
+			log.Printf("Server error: %v", err)
 		}
 	}
 
