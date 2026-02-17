@@ -25,7 +25,6 @@ type MockOPAClient struct {
 	StorePolicyFunc  func(ctx context.Context, policyID string, regoCode string) error
 	GetPolicyFunc    func(ctx context.Context, policyID string) (string, error)
 	DeletePolicyFunc func(ctx context.Context, policyID string) error
-	CloseFunc        func() error
 }
 
 func (m *MockOPAClient) StorePolicy(ctx context.Context, policyID string, regoCode string) error {
@@ -45,13 +44,6 @@ func (m *MockOPAClient) GetPolicy(ctx context.Context, policyID string) (string,
 func (m *MockOPAClient) DeletePolicy(ctx context.Context, policyID string) error {
 	if m.DeletePolicyFunc != nil {
 		return m.DeletePolicyFunc(ctx, policyID)
-	}
-	return nil
-}
-
-func (m *MockOPAClient) Close() error {
-	if m.CloseFunc != nil {
-		return m.CloseFunc()
 	}
 	return nil
 }
