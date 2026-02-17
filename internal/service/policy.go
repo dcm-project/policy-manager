@@ -120,25 +120,25 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 		return nil, err
 	}
 
-	// Store Rego in OPA first (validates syntax and stores)
-	if err := s.opaClient.StorePolicy(ctx, *policyID, *policy.RegoCode); err != nil {
-		return nil, handleOPAError(err, "create")
-	}
-
 	// Convert API model to DB model (strips RegoCode)
 	dbPolicy := APIToDBModel(policy, *policyID)
 
-	// Create policy in store
+	// Create policy in store first (duplicate ID fails here without touching OPA)
 	created, err := s.store.Policy().Create(ctx, dbPolicy)
 	if err != nil {
-		// Rollback: Delete from OPA since DB creation failed
-		if delErr := s.opaClient.DeletePolicy(ctx, *policyID); delErr != nil {
-			slog.Error("Failed to rollback OPA policy after DB create failure",
-				"policy_id", *policyID,
-				"opa_error", delErr,
-				"db_error", err)
-		}
 		return nil, processPolicyStoreError(err, dbPolicy, "create")
+	}
+
+	// Store Rego in OPA (validates syntax and stores)
+	if err := s.opaClient.StorePolicy(ctx, *policyID, *policy.RegoCode); err != nil {
+		// Rollback: Delete from DB since OPA store failed
+		if delErr := s.store.Policy().Delete(ctx, *policyID); delErr != nil {
+			slog.Error("Failed to rollback DB policy after OPA store failure",
+				"policy_id", *policyID,
+				"db_error", delErr,
+				"opa_error", err)
+		}
+		return nil, handleOPAError(err, "create")
 	}
 
 	// Convert back to API model with empty RegoCode and set Path

@@ -323,6 +323,35 @@ var _ = Describe("PolicyService", func() {
 			Expect(serviceErr.Detail).To(ContainSubstring("duplicate-policy"))
 		})
 
+		It("should preserve original Rego when duplicate ID create fails", func() {
+			clientID := "duplicate-rego-preserved"
+			originalRego := "package original\nallow = true"
+			policy1 := v1alpha1.Policy{
+				DisplayName: strPtr("First Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr(originalRego),
+			}
+
+			_, err := policyService.CreatePolicy(ctx, policy1, &clientID)
+			Expect(err).To(BeNil())
+
+			policy2 := v1alpha1.Policy{
+				DisplayName: strPtr("Second Policy"),
+				PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
+				RegoCode:    strPtr("package overwrite\nallow = false"),
+			}
+			_, err = policyService.CreatePolicy(ctx, policy2, &clientID)
+			Expect(err).NotTo(BeNil())
+			serviceErr, ok := err.(*service.ServiceError)
+			Expect(ok).To(BeTrue())
+			Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+
+			retrieved, err := policyService.GetPolicy(ctx, clientID)
+			Expect(err).To(BeNil())
+			Expect(retrieved.RegoCode).NotTo(BeNil())
+			Expect(*retrieved.RegoCode).To(Equal(originalRego))
+		})
+
 		It("should return AlreadyExists when creating two policies with same display_name and policy_type", func() {
 			policy := v1alpha1.Policy{
 				DisplayName: strPtr("Unique Display Name"),
@@ -1133,27 +1162,17 @@ var _ = Describe("PolicyService", func() {
 				Expect(serviceErr.Message).To(ContainSubstring("Invalid Rego code"))
 			})
 
-			It("should rollback OPA on DB failure", func() {
+			It("should not touch OPA when duplicate ID causes DB create to fail", func() {
 				clientID := "rollback-test"
-				var storedPolicyID string
-				var rollbackCalled bool
+				var opaDeleteCalled bool
 
-				// Track if StorePolicy is called
-				mockOPA.StorePolicyFunc = func(ctx context.Context, policyID string, regoCode string) error {
-					storedPolicyID = policyID
-					opaStorage[policyID] = regoCode
-					return nil
-				}
-
-				// Track if DeletePolicy is called
 				mockOPA.DeletePolicyFunc = func(ctx context.Context, policyID string) error {
-					rollbackCalled = true
-					Expect(policyID).To(Equal(storedPolicyID))
+					opaDeleteCalled = true
 					delete(opaStorage, policyID)
 					return nil
 				}
 
-				// Create first policy to force DB error on duplicate
+				// Create first policy
 				policy1 := v1alpha1.Policy{
 					DisplayName: strPtr("First Policy"),
 					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
@@ -1162,7 +1181,7 @@ var _ = Describe("PolicyService", func() {
 				_, err := policyService.CreatePolicy(ctx, policy1, &clientID)
 				Expect(err).To(BeNil())
 
-				// Try to create duplicate (same client ID)
+				// Try to create duplicate (same client ID) - fails at DB, so OPA is never called for second create
 				policy2 := v1alpha1.Policy{
 					DisplayName: strPtr("Second Policy"),
 					PolicyType:  policyTypePtr(v1alpha1.GLOBAL),
@@ -1171,7 +1190,15 @@ var _ = Describe("PolicyService", func() {
 				_, err = policyService.CreatePolicy(ctx, policy2, &clientID)
 
 				Expect(err).NotTo(BeNil())
-				Expect(rollbackCalled).To(BeTrue(), "OPA rollback should be called")
+				serviceErr, ok := err.(*service.ServiceError)
+				Expect(ok).To(BeTrue())
+				Expect(serviceErr.Type).To(Equal(service.ErrorTypeAlreadyExists))
+				Expect(opaDeleteCalled).To(BeFalse(), "OPA delete should not be called when duplicate fails at DB")
+				// Original policy and Rego still intact
+				retrieved, err := policyService.GetPolicy(ctx, clientID)
+				Expect(err).To(BeNil())
+				Expect(retrieved.RegoCode).NotTo(BeNil())
+				Expect(*retrieved.RegoCode).To(Equal("package test1"))
 			})
 		})
 
