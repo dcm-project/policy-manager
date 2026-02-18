@@ -1,4 +1,4 @@
-package apiserver
+package engineserver
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dcm-project/policy-manager/api/v1alpha1"
-	"github.com/dcm-project/policy-manager/internal/api/server"
+	engineserverapi "github.com/dcm-project/policy-manager/api/v1alpha1/engine"
+	engineserver "github.com/dcm-project/policy-manager/internal/api/engine"
 	"github.com/dcm-project/policy-manager/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -18,15 +18,15 @@ import (
 
 const gracefulShutdownTimeout = 5 * time.Second
 
-// Server wraps the HTTP server with configuration and lifecycle management
+// Server wraps the HTTP server for the engine API
 type Server struct {
 	config   *config.Config
 	listener net.Listener
-	handler  server.StrictServerInterface
+	handler  engineserver.StrictServerInterface
 }
 
-// New creates a new Server instance
-func New(cfg *config.Config, listener net.Listener, handler server.StrictServerInterface) *Server {
+// New creates a new engine server instance
+func New(cfg *config.Config, listener net.Listener, handler engineserver.StrictServerInterface) *Server {
 	return &Server{
 		config:   cfg,
 		listener: listener,
@@ -40,7 +40,7 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
-	swagger, err := v1alpha1.GetSwagger()
+	swagger, err := engineserverapi.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("failed to load swagger spec: %w", err)
 	}
@@ -50,14 +50,12 @@ func (s *Server) Run(ctx context.Context) error {
 		baseURL = swagger.Servers[0].URL
 	}
 
-	// Mount the generated handler with base URL from OpenAPI spec
-	server.HandlerFromMuxWithBaseURL(
-		server.NewStrictHandler(s.handler, nil),
+	engineserver.HandlerFromMuxWithBaseURL(
+		engineserver.NewStrictHandler(s.handler, nil),
 		router,
 		baseURL,
 	)
 
-	// Create HTTP server
 	srv := &http.Server{Handler: router}
 
 	go func() {
@@ -65,15 +63,15 @@ func (s *Server) Run(ctx context.Context) error {
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		srv.SetKeepAlivesEnabled(false)
-		log.Println("Shutting down server...")
+		log.Println("Shutting down engine server...")
 		_ = srv.Shutdown(ctxTimeout)
 	}()
 
-	log.Printf("Starting server on %s", s.listener.Addr())
+	log.Printf("Starting engine server on %s", s.listener.Addr())
 	if err := srv.Serve(s.listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("failed to serve policies API server: %w", err)
+		return fmt.Errorf("failed to serve engine API server: %w", err)
 	}
 
-	log.Println("Server stopped")
+	log.Println("Engine server stopped successfully")
 	return nil
 }
