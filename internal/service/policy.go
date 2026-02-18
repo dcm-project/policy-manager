@@ -371,10 +371,7 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 		// Get old Rego from OPA for potential rollback
 		oldRegoCode, err = s.opaClient.GetPolicy(ctx, id)
 		if err != nil {
-			// If we can't get old Rego, log warning but proceed (can't rollback if update fails)
-			slog.Warn("Failed to get old Rego for rollback capability",
-				"policy_id", id,
-				"error", err)
+			return nil, handleOPAError(err, "update")
 		}
 
 		// Store new Rego in OPA (validates syntax and stores)
