@@ -11,6 +11,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -25,6 +26,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y podman
           pip install podman-compose
+
+      - name: Pre-pull container images
+        run: |
+          for img in quay.io/sclorg/postgresql-16-c9s:latest docker.io/openpolicyagent/opa:latest-static; do
+            for i in 1 2 3; do
+              podman pull "$img" && break
+              [ $i -eq 3 ] && exit 1
+              echo "Pull failed, retrying in 15s..."
+              sleep 15
+            done
+          done
 
       - name: Start services
         run: make e2e-up
