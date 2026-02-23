@@ -32,7 +32,7 @@ func ExtractPackageName(regoCode string) (string, error) {
 			return "", ErrEmptyPackageDeclaration
 		}
 
-		if pkgName, ok :=strings.CutPrefix(trimmed, "package "); ok && pkgName != "" {
+		if pkgName, ok := strings.CutPrefix(trimmed, "package "); ok && pkgName != "" {
 			// Strip trailing comments (e.g., "package test # this is a comment")
 			if idx := strings.Index(pkgName, "#"); idx != -1 {
 				pkgName = pkgName[:idx]

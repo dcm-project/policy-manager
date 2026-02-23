@@ -408,6 +408,8 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 	// Update package name if RegoCode was changed
 	if patch != nil && patch.RegoCode != nil {
 		dbPolicy.PackageName = newPackageName
+	} else {
+		dbPolicy.PackageName = existingDB.PackageName
 	}
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
