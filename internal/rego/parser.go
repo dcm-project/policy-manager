@@ -27,7 +27,7 @@ func ExtractPackageName(regoCode string) (string, error) {
 			continue
 		}
 
-		// Look for package declaration (must be followed by space or end of line)
+		// Look for package declaration
 		if trimmed == "package" {
 			return "", ErrEmptyPackageDeclaration
 		}
