@@ -1,14 +1,14 @@
 services:
   postgres:
-    image: docker.io/library/postgres:16-alpine
+    image: quay.io/sclorg/postgresql-16-c9s:latest
     environment:
-      POSTGRES_DB: policy_manager_test
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
+      POSTGRESQL_DATABASE: policy_manager_test
+      POSTGRESQL_USER: test_user
+      POSTGRESQL_PASSWORD: test_password
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/pgsql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test_user -d policy_manager_test"]
       interval: 5s
