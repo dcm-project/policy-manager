@@ -19,6 +19,8 @@ const (
 	ErrorTypeAlreadyExists      ErrorType = "ALREADY_EXISTS"
 	ErrorTypeInternal           ErrorType = "INTERNAL"
 	ErrorTypeFailedPrecondition ErrorType = "FAILED_PRECONDITION"
+	ErrorTypeRejected           ErrorType = "REJECTED"        // Policy evaluation rejected
+	ErrorTypePolicyConflict     ErrorType = "POLICY_CONFLICT" // Policy constraint conflict
 )
 
 // ServiceError represents a structured error from the service layer
@@ -123,4 +125,74 @@ func NewFailedPreconditionError(message, detail string) *ServiceError {
 		Message: message,
 		Detail:  detail,
 	}
+}
+
+// NewPolicyRejectedError creates a new policy rejected error (406 Not Acceptable)
+func NewPolicyRejectedError(policyID, reason string) *ServiceError {
+	return &ServiceError{
+		Type:    ErrorTypeRejected,
+		Message: fmt.Sprintf("Request rejected by policy '%s'", policyID),
+		Detail:  reason,
+	}
+}
+
+// NewPolicyConflictError creates a new policy conflict error (409 Conflict)
+func NewPolicyConflictError(lowerPolicyID, field, higherPolicyID string) *ServiceError {
+	return &ServiceError{
+		Type:    ErrorTypePolicyConflict,
+		Message: fmt.Sprintf("Policy '%s' attempted to modify field '%s' which was set by higher-priority policy '%s'", lowerPolicyID, field, higherPolicyID),
+		Detail:  fmt.Sprintf("Field '%s' is immutable after being set by policy '%s'", field, higherPolicyID),
+	}
+}
+
+// NewConstraintViolationError creates a new constraint violation error (409 Conflict)
+// This is used when a patch value violates accumulated constraints from higher-priority policies
+func NewConstraintViolationError(policyID string, violations []ConstraintViolation) *ServiceError {
+	parts := make([]string, len(violations))
+	for i, v := range violations {
+		parts[i] = fmt.Sprintf("field '%s': %s (constrained by policy '%s')", v.FieldPath, v.Reason, v.SetByPolicy)
+	}
+	detail := fmt.Sprintf("Constraint violations: %s", joinStrings(parts, "; "))
+	return &ServiceError{
+		Type:    ErrorTypePolicyConflict,
+		Message: fmt.Sprintf("Policy '%s' produced values that violate constraints set by higher-priority policies", policyID),
+		Detail:  detail,
+	}
+}
+
+// NewConstraintConflictError creates a new constraint conflict error (409 Conflict)
+// This is used when a lower-priority policy tries to loosen constraints set by a higher-priority policy
+func NewConstraintConflictError(policyID, fieldPath, existingPolicyID, reason string) *ServiceError {
+	return &ServiceError{
+		Type:    ErrorTypePolicyConflict,
+		Message: fmt.Sprintf("Policy '%s' attempted to loosen constraint on field '%s' set by higher-priority policy '%s'", policyID, fieldPath, existingPolicyID),
+		Detail:  reason,
+	}
+}
+
+// NewServiceProviderConstraintError creates a new SP constraint error (409 Conflict)
+func NewServiceProviderConstraintError(policyID, detail string) *ServiceError {
+	return &ServiceError{
+		Type:    ErrorTypePolicyConflict,
+		Message: fmt.Sprintf("Policy '%s' selected a service provider that violates constraints", policyID),
+		Detail:  detail,
+	}
+}
+
+// ConstraintViolation represents a single constraint violation
+type ConstraintViolation struct {
+	FieldPath   string
+	Reason      string
+	SetByPolicy string
+}
+
+func joinStrings(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for _, p := range parts[1:] {
+		result += sep + p
+	}
+	return result
 }
