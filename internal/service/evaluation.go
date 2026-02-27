@@ -54,8 +54,14 @@ func NewEvaluationService(policyStore store.Policy, opaClient opa.Client) Evalua
 // EvaluateRequest evaluates a service instance request against all applicable policies
 func (s *evaluationService) EvaluateRequest(ctx context.Context, req *EvaluationRequest) (*EvaluationResponse, error) {
 	// Initialize the current service instance spec (we'll modify this as we evaluate policies)
-	currentSpec := deepCopyMap(req.ServiceInstance)
-	originalSpec := deepCopyMap(req.ServiceInstance)
+	currentSpec, err := deepCopyMap(req.ServiceInstance)
+	if err != nil {
+		return nil, NewInternalError("Failed to make a deep copy of the service instance spec", err.Error(), err)
+	}
+	originalSpec, err := deepCopyMap(req.ServiceInstance)
+	if err != nil {
+		return nil, NewInternalError("Failed to make a deep copy of the service instance spec", err.Error(), err)
+	}
 
 	// Initialize constraint context
 	constraintCtx := NewConstraintContext()
@@ -180,7 +186,10 @@ func (s *evaluationService) evaluatePolicy(
 		}
 
 		// 7. Apply patch — deep merge into currentSpec (RFC 7396 JSON Merge Patch semantics)
-		currentSpec = mergePatch(currentSpec, decision.Patch)
+		currentSpec, err = mergePatch(currentSpec, decision.Patch)
+		if err != nil {
+			return nil, "", NewInternalError("Failed to merge patch into current spec", err.Error(), err)
+		}
 	}
 
 	// 8. Validate service provider against SP constraints
@@ -197,8 +206,11 @@ func (s *evaluationService) evaluatePolicy(
 // mergePatch performs a recursive JSON Merge Patch (RFC 7396) of patch into base.
 // Fields in patch override fields in base. Null values in patch remove fields from base.
 // Fields not mentioned in patch are preserved from base.
-func mergePatch(base, patch map[string]any) map[string]any {
-	result := deepCopyMap(base)
+func mergePatch(base, patch map[string]any) (map[string]any, error) {
+	result, err := deepCopyMap(base)
+	if err != nil {
+		return nil, err
+	}
 
 	for key, patchValue := range patch {
 		if patchValue == nil {
@@ -213,29 +225,32 @@ func mergePatch(base, patch map[string]any) map[string]any {
 
 		if patchIsMap && baseExists && baseIsMap {
 			// Both are maps — recurse
-			result[key] = mergePatch(baseMap, patchMap)
+			result[key], err = mergePatch(baseMap, patchMap)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			// Patch value overrides base
 			result[key] = patchValue
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 // deepCopyMap creates a deep copy of a map
-func deepCopyMap(m map[string]any) map[string]any {
+func deepCopyMap(m map[string]any) (map[string]any, error) {
 	bytes, err := json.Marshal(m)
 	if err != nil {
-		return m
+		return nil, err
 	}
 
 	var result map[string]any
 	if err := json.Unmarshal(bytes, &result); err != nil {
-		return m
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
 
 // mapsEqual checks if two maps are equal
