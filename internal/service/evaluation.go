@@ -169,8 +169,16 @@ func (s *evaluationService) evaluatePolicy(
 	// 5. Merge service provider constraints
 	if decision.ServiceProviderConstraints != nil {
 		spc := decision.ServiceProviderConstraints
-		if err := constraintCtx.MergeSPConstraints(spc.AllowList, spc.Pattern, policy.ID); err != nil {
-			return nil, "", NewServiceProviderConstraintError(policy.ID, err.Error())
+		for _, p := range spc.Patterns {
+			if err := constraintCtx.MergeSPConstraints(spc.AllowList, p, policy.ID); err != nil {
+				return nil, "", NewServiceProviderConstraintError(policy.ID, err.Error())
+			}
+		}
+		// Merge allow list when there are no patterns (allow list only)
+		if len(spc.Patterns) == 0 && (len(spc.AllowList) > 0) {
+			if err := constraintCtx.MergeSPConstraints(spc.AllowList, "", policy.ID); err != nil {
+				return nil, "", NewServiceProviderConstraintError(policy.ID, err.Error())
+			}
 		}
 	}
 

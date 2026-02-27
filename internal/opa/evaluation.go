@@ -9,7 +9,7 @@ type EvaluationResult struct {
 // ServiceProviderConstraints represents constraints on which service providers are allowed
 type ServiceProviderConstraints struct {
 	AllowList []string `json:"allow_list,omitempty"`
-	Pattern   string   `json:"pattern,omitempty"`
+	Patterns  []string `json:"patterns,omitempty"`
 }
 
 // PolicyDecision represents the expected output from OPA policies
@@ -51,8 +51,12 @@ func ParsePolicyDecision(result map[string]any) *PolicyDecision {
 				}
 			}
 		}
-		if pattern, ok := spc["pattern"].(string); ok {
-			spConstraints.Pattern = pattern
+		if patterns, ok := spc["patterns"].([]any); ok {
+			for _, item := range patterns {
+				if s, ok := item.(string); ok {
+					spConstraints.Patterns = append(spConstraints.Patterns, s)
+				}
+			}
 		}
 		decision.ServiceProviderConstraints = spConstraints
 	}

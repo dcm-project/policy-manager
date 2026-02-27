@@ -901,7 +901,7 @@ main := {
 main := {
 	"rejected": false,
 	"service_provider_constraints": {
-		"pattern": "^aws"
+		"patterns": ["^aws"]
 	}
 }`
 				policy1ID = "test-sp-pattern-policy-1"

@@ -60,14 +60,14 @@ func TestParsePolicyDecision(t *testing.T) {
 				"rejected": false,
 				"service_provider_constraints": map[string]interface{}{
 					"allow_list": []interface{}{"aws", "gcp"},
-					"pattern":    "^(aws|gcp)$",
+					"patterns":   []interface{}{"^(aws|gcp)$"},
 				},
 			},
 			expected: &PolicyDecision{
 				Rejected: false,
 				ServiceProviderConstraints: &ServiceProviderConstraints{
 					AllowList: []string{"aws", "gcp"},
-					Pattern:   "^(aws|gcp)$",
+					Patterns:  []string{"^(aws|gcp)$"},
 				},
 			},
 		},
@@ -117,7 +117,7 @@ func TestParsePolicyDecision(t *testing.T) {
 			if tt.expected.ServiceProviderConstraints != nil {
 				assert.NotNil(t, decision.ServiceProviderConstraints)
 				assert.Equal(t, tt.expected.ServiceProviderConstraints.AllowList, decision.ServiceProviderConstraints.AllowList)
-				assert.Equal(t, tt.expected.ServiceProviderConstraints.Pattern, decision.ServiceProviderConstraints.Pattern)
+				assert.Equal(t, tt.expected.ServiceProviderConstraints.Patterns, decision.ServiceProviderConstraints.Patterns)
 			} else {
 				assert.Nil(t, decision.ServiceProviderConstraints)
 			}
