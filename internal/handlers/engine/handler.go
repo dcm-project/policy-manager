@@ -23,15 +23,13 @@ func NewHandler(evaluationService service.EvaluationService) *Handler {
 
 // EvaluateRequest evaluates a service instance request against policies
 func (h *Handler) EvaluateRequest(ctx context.Context, request engineserver.EvaluateRequestRequestObject) (engineserver.EvaluateRequestResponseObject, error) {
-	if request.Body == nil {
-		return h.badRequest("Request body is required"), nil
+	// Convert API request to service request
+	evaluationRequest, err := toServiceEvaluationRequest(request)
+	if err != nil {
+		return h.badRequest(err.Error()), nil
 	}
-	if _, ok := request.Body.ServiceInstance.Spec["service_type"]; !ok {
-		return h.badRequest("Service type is required"), nil
-	}
-
 	// Call evaluation service
-	response, err := h.evaluationService.EvaluateRequest(ctx, toServiceEvaluationRequest(request))
+	response, err := h.evaluationService.EvaluateRequest(ctx, evaluationRequest)
 	if err != nil {
 		return h.handleError(err), nil
 	}

@@ -1,15 +1,21 @@
 package engine
 
 import (
+	"fmt"
+
 	engineserver "github.com/dcm-project/policy-manager/internal/api/engine"
 	"github.com/dcm-project/policy-manager/internal/service"
 )
 
-func toServiceEvaluationRequest(request engineserver.EvaluateRequestRequestObject) *service.EvaluationRequest {
+func toServiceEvaluationRequest(request engineserver.EvaluateRequestRequestObject) (*service.EvaluationRequest, error) {
+	requestLabels, err := extractRequestLabels(request.Body.ServiceInstance.Spec)
+	if err != nil {
+		return nil, err
+	}
 	return &service.EvaluationRequest{
 		ServiceInstance: request.Body.ServiceInstance.Spec,
-		RequestLabels:   extractRequestLabels(request.Body.ServiceInstance.Spec),
-	}
+		RequestLabels:   requestLabels,
+	}, nil
 }
 
 func toEngineEvaluationResponse(response *service.EvaluationResponse) engineserver.EvaluateResponse {
@@ -23,8 +29,14 @@ func toEngineEvaluationResponse(response *service.EvaluationResponse) engineserv
 }
 
 // extractRequestLabels extracts labels from spec.metadata.labels
-func extractRequestLabels(spec map[string]any) map[string]string {
+func extractRequestLabels(spec map[string]any) (map[string]string, error) {
+	serviceType, ok := spec["service_type"].(string)
+	if !ok {
+		return nil, fmt.Errorf("service type is required")
+	}
 	result := make(map[string]string)
+	result["service_type"] = serviceType
+
 	if metadata, ok := spec["metadata"].(map[string]any); ok {
 		if labels, ok := metadata["labels"].(map[string]any); ok {
 			for k, v := range labels {
@@ -34,6 +46,6 @@ func extractRequestLabels(spec map[string]any) map[string]string {
 			}
 		}
 	}
-	result["service_type"] = spec["service_type"].(string)
-	return result
+
+	return result, nil
 }
