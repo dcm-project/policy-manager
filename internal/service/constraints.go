@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dcm-project/policy-manager/internal/opa"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -122,16 +123,23 @@ func (c *ConstraintContext) validatePatchRecursive(
 	}
 }
 
-// MergeSPConstraints merges service provider constraints.
-// Allow lists are intersected, patterns are ANDed.
-func (c *ConstraintContext) MergeSPConstraints(allowList []string, pattern string, policyID string) error {
+// MergeSPConstraints merges service provider constraints from a policy decision.
+// If sp is nil or has neither allow list nor patterns, it is a no-op.
+// Allow lists are intersected once; all patterns are appended (ANDed).
+func (c *ConstraintContext) MergeSPConstraints(sp *opa.ServiceProviderConstraints, policyID string) error {
+	if sp == nil {
+		return nil
+	}
+	allowList := sp.AllowList
+	patterns := sp.Patterns
+	if len(allowList) == 0 && len(patterns) == 0 {
+		return nil
+	}
 	if c.serviceProviderConstraints == nil {
 		c.serviceProviderConstraints = &AccumulatedSPConstraints{
 			AllowList: allowList,
+			Patterns:  append([]string(nil), patterns...),
 			SetBy:     policyID,
-		}
-		if pattern != "" {
-			c.serviceProviderConstraints.Patterns = []string{pattern}
 		}
 		return nil
 	}
@@ -150,8 +158,8 @@ func (c *ConstraintContext) MergeSPConstraints(allowList []string, pattern strin
 	}
 
 	// AND patterns
-	if pattern != "" {
-		c.serviceProviderConstraints.Patterns = append(c.serviceProviderConstraints.Patterns, pattern)
+	for _, p := range patterns {
+		c.serviceProviderConstraints.Patterns = append(c.serviceProviderConstraints.Patterns, p)
 	}
 
 	return nil
