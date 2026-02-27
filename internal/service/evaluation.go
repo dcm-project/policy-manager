@@ -58,10 +58,6 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 	if err != nil {
 		return nil, NewInternalError("Failed to make a deep copy of the service instance spec", err.Error(), err)
 	}
-	originalSpec, err := deepCopyMap(req.ServiceInstance)
-	if err != nil {
-		return nil, NewInternalError("Failed to make a deep copy of the service instance spec", err.Error(), err)
-	}
 
 	// Initialize constraint context
 	constraintCtx := NewConstraintContext()
@@ -104,7 +100,7 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 
 	// Determine status
 	status := EvaluationStatusApproved
-	if !mapsEqual(originalSpec, currentSpec) {
+	if !mapsEqual(req.ServiceInstance, currentSpec) {
 		status = EvaluationStatusModified
 	}
 
