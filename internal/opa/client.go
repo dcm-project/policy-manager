@@ -1,6 +1,7 @@
 package opa
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -180,7 +181,7 @@ func (c *HTTPClient) EvaluatePolicy(ctx context.Context, packageName string, inp
 		return nil, fmt.Errorf("%w: failed to marshal input: %v", ErrClientInternal, err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(bodyBytes)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrClientInternal, err)
 	}
