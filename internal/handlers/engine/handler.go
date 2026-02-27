@@ -4,31 +4,36 @@ import (
 	"context"
 
 	engineserver "github.com/dcm-project/policy-manager/internal/api/engine"
+	"github.com/dcm-project/policy-manager/internal/service"
 )
 
-// Handler implements the engine API with stub methods
-type Handler struct{}
+// Handler implements the engine API
+type Handler struct {
+	evaluationService service.EvaluationService
+}
 
 var _ engineserver.StrictServerInterface = (*Handler)(nil)
 
 // NewHandler creates a new engine handler
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(evaluationService service.EvaluationService) *Handler {
+	return &Handler{
+		evaluationService: evaluationService,
+	}
 }
 
-// EvaluateRequest is a stub that returns 501 Not Implemented
+// EvaluateRequest evaluates a service instance request against policies
 func (h *Handler) EvaluateRequest(ctx context.Context, request engineserver.EvaluateRequestRequestObject) (engineserver.EvaluateRequestResponseObject, error) {
-	// Stub: Return 501 Not Implemented
-	detail := "Policy evaluation is not yet implemented"
-	instance := "/api/v1alpha1/policies:evaluateRequest"
+	// Convert API request to service request
+	evaluationRequest, err := toServiceEvaluationRequest(request)
+	if err != nil {
+		return h.badRequest(err.Error()), nil
+	}
+	// Call evaluation service
+	response, err := h.evaluationService.EvaluateRequest(ctx, evaluationRequest)
+	if err != nil {
+		return h.handleError(err), nil
+	}
 
-	return engineserver.EvaluateRequest500JSONResponse{
-		InternalServerErrorJSONResponse: engineserver.InternalServerErrorJSONResponse{
-			Type:     "about:blank",
-			Status:   501,
-			Title:    "Not Implemented",
-			Detail:   &detail,
-			Instance: &instance,
-		},
-	}, nil
+	// Map service response to API response
+	return engineserver.EvaluateRequest200JSONResponse(toEngineEvaluationResponse(response)), nil
 }
