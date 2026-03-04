@@ -204,7 +204,7 @@ func (c *HTTPClient) EvaluatePolicy(ctx context.Context, packageName string, inp
 
 	// Parse the response
 	var result struct {
-		Result map[string]any `json:"result"`
+		Result any `json:"result"`
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -212,15 +212,28 @@ func (c *HTTPClient) EvaluatePolicy(ctx context.Context, packageName string, inp
 		return nil, fmt.Errorf("%w: failed to read response: %v", ErrClientInternal, err)
 	}
 
+	// Fails when the response body is not valid JSON (e.g. malformed, truncated).
+	// Does not fail when result is a non-object; that is caught by the type assertion below.
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("%w: failed to parse response: %v", ErrClientInternal, err)
+	}
+
+	// OPA returns {} when the policy is undefined; result.Result is nil
+	if result.Result == nil {
+		return &EvaluationResult{Result: nil, Defined: false}, nil
+	}
+
+	// Type-assert to map; if the policy returned a non-object, give a clear error
+	resultMap, ok := result.Result.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: policy main rule must return an object (e.g. {\"rejected\": false}); got %T", ErrClientInternal, result.Result)
 	}
 
 	// Check if the result is defined (not undefined)
 	// If the result map is present, the policy is defined
 	evalResult := &EvaluationResult{
-		Result:  result.Result,
-		Defined: result.Result != nil,
+		Result:  resultMap,
+		Defined: true,
 	}
 
 	return evalResult, nil

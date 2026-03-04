@@ -3,6 +3,7 @@ package opa_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -219,8 +220,8 @@ var _ = Describe("OPA Client", func() {
 			defer server.Close()
 
 			client := opa.NewClient(server.URL, 5*time.Second)
-			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]interface{}{
-				"spec": map[string]interface{}{
+			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{
+				"spec": map[string]any{
 					"region": "us-east-1",
 				},
 				"provider": "aws",
@@ -245,10 +246,28 @@ var _ = Describe("OPA Client", func() {
 			defer server.Close()
 
 			client := opa.NewClient(server.URL, 5*time.Second)
-			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]interface{}{})
+			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{})
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Defined).To(BeFalse())
+		})
+
+		It("returns ErrClientInternal when OPA result is not a map", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				// OPA returned a string instead of an object; client must reject it
+				json.NewEncoder(w).Encode(map[string]any{"result": "not an object"})
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			_, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{})
+
+			Expect(err).To(MatchError(ContainSubstring("policy main rule must return an object")))
+			Expect(err).To(MatchError(ContainSubstring("string")))
+			Expect(errors.Is(err, opa.ErrClientInternal)).To(BeTrue())
 		})
 
 		It("returns ErrPolicyNotFound when policy doesn't exist", func() {
@@ -258,14 +277,14 @@ var _ = Describe("OPA Client", func() {
 			defer server.Close()
 
 			client := opa.NewClient(server.URL, 5*time.Second)
-			_, err := client.EvaluatePolicy(ctx, "nonexistent", map[string]interface{}{})
+			_, err := client.EvaluatePolicy(ctx, "nonexistent", map[string]any{})
 
 			Expect(err).To(MatchError(opa.ErrPolicyNotFound))
 		})
 
 		It("returns ErrOPAUnavailable when OPA is unreachable", func() {
 			client := opa.NewClient("http://localhost:1", 100*time.Millisecond)
-			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]interface{}{})
+			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]any{})
 
 			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
 		})
@@ -277,7 +296,7 @@ var _ = Describe("OPA Client", func() {
 			defer server.Close()
 
 			client := opa.NewClient(server.URL, 5*time.Second)
-			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]interface{}{})
+			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]any{})
 
 			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
 		})
