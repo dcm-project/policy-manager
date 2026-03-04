@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/store"
@@ -152,7 +153,7 @@ func NewConstraintViolationError(policyID string, violations []ConstraintViolati
 	for i, v := range violations {
 		parts[i] = fmt.Sprintf("field '%s': %s (constrained by policy '%s')", v.FieldPath, v.Reason, v.SetByPolicy)
 	}
-	detail := fmt.Sprintf("Constraint violations: %s", joinStrings(parts, "; "))
+	detail := fmt.Sprintf("Constraint violations: %s", strings.Join(parts, "; "))
 	return &ServiceError{
 		Type:    ErrorTypePolicyConflict,
 		Message: fmt.Sprintf("Policy '%s' produced values that violate constraints set by higher-priority policies", policyID),
@@ -184,15 +185,4 @@ type ConstraintViolation struct {
 	FieldPath   string
 	Reason      string
 	SetByPolicy string
-}
-
-func joinStrings(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	result := parts[0]
-	for _, p := range parts[1:] {
-		result += sep + p
-	}
-	return result
 }
