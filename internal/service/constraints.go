@@ -1,13 +1,14 @@
 package service
 
 import (
-	"slices"
 	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/brunoga/deep/v4"
 	"github.com/dcm-project/policy-manager/internal/opa"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -423,19 +424,20 @@ func getOrCompileSchema(
 
 // Helper functions
 
+// deepCopySchemaMap creates a deep copy of a schema map using github.com/brunoga/deep.
+// Falls back to recursive copy if deep.Copy fails (e.g. for non-standard types).
 func deepCopySchemaMap(m map[string]any) map[string]any {
-	bytes, err := json.Marshal(m)
+	if m == nil {
+		return nil
+	}
+	copied, err := deep.Copy(m)
 	if err != nil {
 		return deepCopySchemaMapRecursive(m)
 	}
-	var result map[string]any
-	if err := json.Unmarshal(bytes, &result); err != nil {
-		return deepCopySchemaMapRecursive(m)
-	}
-	return result
+	return copied
 }
 
-// deepCopySchemaMapRecursive performs a recursive deep copy of a schema map (used when JSON round-trip fails).
+// deepCopySchemaMapRecursive performs a recursive deep copy (fallback when deep.Copy fails).
 func deepCopySchemaMapRecursive(m map[string]any) map[string]any {
 	result := make(map[string]any, len(m))
 	for k, v := range m {

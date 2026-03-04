@@ -3,6 +3,7 @@ module github.com/dcm-project/policy-manager
 go 1.25.5
 
 require (
+	github.com/brunoga/deep/v4 v4.1.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0

@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/brunoga/deep/v4"
 	"github.com/dcm-project/policy-manager/internal/opa"
 	"github.com/dcm-project/policy-manager/internal/store"
 	"github.com/dcm-project/policy-manager/internal/store/model"
@@ -54,7 +54,7 @@ func NewEvaluationService(policyStore store.Policy, opaClient opa.Client) Evalua
 // EvaluateRequest evaluates a service instance request against all applicable policies
 func (s *evaluationService) EvaluateRequest(ctx context.Context, req *EvaluationRequest) (*EvaluationResponse, error) {
 	// Initialize the current service instance spec (we'll modify this as we evaluate policies)
-	currentSpec, err := deepCopyMap(req.ServiceInstance)
+	currentSpec, err := deep.Copy(req.ServiceInstance)
 	if err != nil {
 		return nil, NewInternalError("Failed to make a deep copy of the service instance spec", err.Error(), err)
 	}
@@ -100,7 +100,7 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 
 	// Determine status
 	status := EvaluationStatusApproved
-	if !mapsEqual(req.ServiceInstance, currentSpec) {
+	if !deep.Equal(req.ServiceInstance, currentSpec) {
 		status = EvaluationStatusModified
 	}
 
@@ -200,7 +200,7 @@ func (s *evaluationService) evaluatePolicy(
 // Fields in patch override fields in base. Null values in patch remove fields from base.
 // Fields not mentioned in patch are preserved from base.
 func mergePatch(base, patch map[string]any) (map[string]any, error) {
-	result, err := deepCopyMap(base)
+	result, err := deep.Copy(base)
 	if err != nil {
 		return nil, err
 	}
@@ -229,36 +229,6 @@ func mergePatch(base, patch map[string]any) (map[string]any, error) {
 	}
 
 	return result, nil
-}
-
-// deepCopyMap creates a deep copy of a map
-func deepCopyMap(m map[string]any) (map[string]any, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	var result map[string]any
-	if err := json.Unmarshal(bytes, &result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-// mapsEqual checks if two maps are equal
-func mapsEqual(a, b map[string]any) bool {
-	aJSON, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-
-	bJSON, err := json.Marshal(b)
-	if err != nil {
-		return false
-	}
-
-	return string(aJSON) == string(bJSON)
 }
 
 // boolPtr returns a pointer to a bool value
