@@ -1,6 +1,7 @@
 package service
 
 import (
+	"slices"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,16 +14,16 @@ import (
 
 // ConstraintContext tracks JSON Schema constraints set by higher-priority policies
 type ConstraintContext struct {
-	fieldConstraints           map[string]map[string]any // field path → JSON Schema keywords
-	setBy                      map[string]string         // field path → policy ID that set it
-	serviceProviderConstraints *AccumulatedSPConstraints
+	constrainedFieldsByFieldPath map[string]map[string]any // field path → JSON Schema keywords
+	policyIdByFieldPath          map[string]string         // field path → policy ID that set it
+	serviceProviderConstraints   *AccumulatedSPConstraints
 }
 
 // AccumulatedSPConstraints tracks accumulated service provider constraints
 type AccumulatedSPConstraints struct {
-	AllowList []string // Intersection of all allow lists
-	Patterns  []string // All patterns (ANDed)
-	SetBy     string   // Policy ID that first set SP constraints
+	AllowList   []string // Intersection of all allow lists
+	Patterns    []string // All patterns (ANDed)
+	SetByPolicy string   // Policy ID that first set SP constraints
 }
 
 // ConstraintConflictError is returned by MergeConstraints when a lower-priority
@@ -40,8 +41,8 @@ func (e *ConstraintConflictError) Error() string {
 // NewConstraintContext creates a new ConstraintContext
 func NewConstraintContext() *ConstraintContext {
 	return &ConstraintContext{
-		fieldConstraints: make(map[string]map[string]any),
-		setBy:            make(map[string]string),
+		constrainedFieldsByFieldPath: make(map[string]map[string]any),
+		policyIdByFieldPath:          make(map[string]string),
 	}
 }
 
@@ -49,26 +50,26 @@ func NewConstraintContext() *ConstraintContext {
 // Constraints can only be tightened, never loosened. Returns an error if a
 // constraint would be loosened.
 func (c *ConstraintContext) MergeConstraints(newConstraints map[string]any, policyID string) error {
-	for fieldPath, schemaRaw := range newConstraints {
-		newSchema, ok := schemaRaw.(map[string]any)
+	for fieldPath, constraint := range newConstraints {
+		newConstraint, ok := constraint.(map[string]any)
 		if !ok {
 			continue
 		}
 
-		existing, hasExisting := c.fieldConstraints[fieldPath]
-		if !hasExisting {
+		existingConstrains, hasExistingConstrains := c.constrainedFieldsByFieldPath[fieldPath]
+		if !hasExistingConstrains {
 			// First constraint for this field — just store it
-			c.fieldConstraints[fieldPath] = deepCopySchemaMap(newSchema)
-			c.setBy[fieldPath] = policyID
+			c.constrainedFieldsByFieldPath[fieldPath] = deepCopySchemaMap(newConstraint)
+			c.policyIdByFieldPath[fieldPath] = policyID
 			continue
 		}
 
 		// Merge each keyword, enforcing tightening-only
-		merged, err := mergeSchemaKeywords(existing, newSchema, fieldPath, c.setBy[fieldPath])
+		mergedConstraints, err := mergeSchemaKeywords(existingConstrains, newConstraint, fieldPath, c.policyIdByFieldPath[fieldPath])
 		if err != nil {
 			return err
 		}
-		c.fieldConstraints[fieldPath] = merged
+		c.constrainedFieldsByFieldPath[fieldPath] = mergedConstraints
 	}
 	return nil
 }
@@ -99,19 +100,19 @@ func (c *ConstraintContext) validatePatchRecursive(
 		}
 
 		// Check if there's a constraint for this field
-		if schemaMap, exists := c.fieldConstraints[fieldPath]; exists {
+		if schemaMap, exists := c.constrainedFieldsByFieldPath[fieldPath]; exists {
 			comp, err := getOrCompileSchema(compiler, compiled, fieldPath, schemaMap)
 			if err != nil {
 				*violations = append(*violations, ConstraintViolation{
 					FieldPath:   fieldPath,
 					Reason:      err.Error(),
-					SetByPolicy: c.setBy[fieldPath],
+					SetByPolicy: c.policyIdByFieldPath[fieldPath],
 				})
 			} else if err := comp.Validate(value); err != nil {
 				*violations = append(*violations, ConstraintViolation{
 					FieldPath:   fieldPath,
 					Reason:      fmt.Sprintf("value %v violates constraint: %v", value, err),
-					SetByPolicy: c.setBy[fieldPath],
+					SetByPolicy: c.policyIdByFieldPath[fieldPath],
 				})
 			}
 		}
@@ -137,9 +138,9 @@ func (c *ConstraintContext) MergeSPConstraints(sp *opa.ServiceProviderConstraint
 	}
 	if c.serviceProviderConstraints == nil {
 		c.serviceProviderConstraints = &AccumulatedSPConstraints{
-			AllowList: allowList,
-			Patterns:  append([]string(nil), patterns...),
-			SetBy:     policyID,
+			AllowList:   allowList,
+			Patterns:    append([]string(nil), patterns...),
+			SetByPolicy: policyID,
 		}
 		return nil
 	}
@@ -150,7 +151,7 @@ func (c *ConstraintContext) MergeSPConstraints(sp *opa.ServiceProviderConstraint
 		if len(intersected) == 0 {
 			return fmt.Errorf("service provider allow list intersection is empty: "+
 				"policy '%s' allows %v but existing constraints from policy '%s' allow %v",
-				policyID, allowList, c.serviceProviderConstraints.SetBy, c.serviceProviderConstraints.AllowList)
+				policyID, allowList, c.serviceProviderConstraints.SetByPolicy, c.serviceProviderConstraints.AllowList)
 		}
 		c.serviceProviderConstraints.AllowList = intersected
 	} else if len(allowList) > 0 {
@@ -175,16 +176,10 @@ func (c *ConstraintContext) ValidateServiceProvider(provider string) error {
 
 	// Check allow list
 	if len(sp.AllowList) > 0 {
-		found := false
-		for _, allowed := range sp.AllowList {
-			if allowed == provider {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(sp.AllowList, provider)
 		if !found {
 			return fmt.Errorf("provider '%s' is not in the allowed list %v (constrained by policy '%s')",
-				provider, sp.AllowList, sp.SetBy)
+				provider, sp.AllowList, sp.SetByPolicy)
 		}
 	}
 
@@ -204,11 +199,11 @@ func (c *ConstraintContext) ValidateServiceProvider(provider string) error {
 
 // GetConstraintsMap returns the accumulated constraints for inclusion in OPA input
 func (c *ConstraintContext) GetConstraintsMap() map[string]any {
-	if len(c.fieldConstraints) == 0 {
+	if len(c.constrainedFieldsByFieldPath) == 0 {
 		return nil
 	}
-	result := make(map[string]any, len(c.fieldConstraints))
-	for k, v := range c.fieldConstraints {
+	result := make(map[string]any, len(c.constrainedFieldsByFieldPath))
+	for k, v := range c.constrainedFieldsByFieldPath {
 		result[k] = v
 	}
 	return result
