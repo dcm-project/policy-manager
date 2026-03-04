@@ -24,56 +24,48 @@ func (h *Handler) handleError(err error) engineserver.EvaluateRequestResponseObj
 
 // badRequest creates a 400 Bad Request response
 func (h *Handler) badRequest(message string) engineserver.EvaluateRequestResponseObject {
-	instance := "/api/v1alpha1/policies:evaluateRequest"
 	return engineserver.EvaluateRequest400JSONResponse{
 		BadRequestJSONResponse: engineserver.BadRequestJSONResponse{
 			Type:     "about:blank",
 			Status:   400,
 			Title:    "Bad Request",
 			Detail:   &message,
-			Instance: &instance,
 		},
 	}
 }
 
 // rejected creates a 406 Not Acceptable response
 func (h *Handler) rejected(title, detail string) engineserver.EvaluateRequestResponseObject {
-	instance := "/api/v1alpha1/policies:evaluateRequest"
 	return engineserver.EvaluateRequest406JSONResponse{
 		RejectedJSONResponse: engineserver.RejectedJSONResponse{
 			Type:     "about:blank",
 			Status:   406,
 			Title:    title,
 			Detail:   &detail,
-			Instance: &instance,
 		},
 	}
 }
 
 // conflict creates a 409 Conflict response
 func (h *Handler) conflict(title, detail string) engineserver.EvaluateRequestResponseObject {
-	instance := "/api/v1alpha1/policies:evaluateRequest"
 	return engineserver.EvaluateRequest409JSONResponse{
 		PolicyConflictJSONResponse: engineserver.PolicyConflictJSONResponse{
 			Type:     "about:blank",
 			Status:   409,
 			Title:    title,
 			Detail:   &detail,
-			Instance: &instance,
 		},
 	}
 }
 
 // internalError creates a 500 Internal Server Error response
 func (h *Handler) internalError(title, detail string) engineserver.EvaluateRequestResponseObject {
-	instance := "/api/v1alpha1/policies:evaluateRequest"
 	return engineserver.EvaluateRequest500JSONResponse{
 		InternalServerErrorJSONResponse: engineserver.InternalServerErrorJSONResponse{
 			Type:     "about:blank",
 			Status:   500,
 			Title:    title,
 			Detail:   &detail,
-			Instance: &instance,
 		},
 	}
 }

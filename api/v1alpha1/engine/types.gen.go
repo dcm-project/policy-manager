@@ -14,9 +14,6 @@ type Error struct {
 	// Detail Detailed error message
 	Detail *string `json:"detail,omitempty"`
 
-	// Instance Request identifier
-	Instance *string `json:"instance,omitempty"`
-
 	// Status HTTP status code
 	Status int32 `json:"status"`
 

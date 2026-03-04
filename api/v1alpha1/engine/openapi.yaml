@@ -104,10 +104,6 @@ components:
         detail:
           type: string
           description: Detailed error message
-        instance:
-          type: string
-          format: uri-reference
-          description: Request identifier
 
   responses:
     BadRequest:
