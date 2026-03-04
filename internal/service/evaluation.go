@@ -68,7 +68,7 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 	// Paginate over all enabled policies, ordered by policy_type ASC, priority ASC
 	var pageToken *string
 	for {
-		result, err := s.policyStore.List(ctx, &store.PolicyListOptions{
+		policyListResult, err := s.policyStore.List(ctx, &store.PolicyListOptions{
 			Filter: &store.PolicyFilter{
 				Enabled: boolPtr(true),
 			},
@@ -80,7 +80,7 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 		}
 
 		// Evaluate each policy on this page sequentially
-		for _, policy := range result.Policies {
+		for _, policy := range policyListResult.Policies {
 			// Filter by label selector
 			if !MatchesLabelSelector(policy.LabelSelector, req.RequestLabels) {
 				continue
@@ -92,10 +92,10 @@ func (s *evaluationService) EvaluateRequest(ctx context.Context, req *Evaluation
 			}
 		}
 
-		if result.NextPageToken == "" {
+		if policyListResult.NextPageToken == "" {
 			break
 		}
-		pageToken = &result.NextPageToken
+		pageToken = &policyListResult.NextPageToken
 	}
 
 	// Determine status
