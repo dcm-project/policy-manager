@@ -3,6 +3,7 @@ package opa_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -190,6 +191,112 @@ var _ = Describe("OPA Client", func() {
 
 			client := opa.NewClient(server.URL, 5*time.Second)
 			err := client.DeletePolicy(ctx, "test-policy")
+
+			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
+		})
+	})
+
+	Describe("EvaluatePolicy", func() {
+		It("successfully evaluates a policy with defined result", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				Expect(r.URL.Path).To(Equal("/v1/data/policies/test_policy/main"))
+				Expect(r.Header.Get("Content-Type")).To(Equal("application/json"))
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				response := map[string]any{
+					"result": map[string]any{
+						"rejected": false,
+						"output_spec": map[string]any{
+							"provider": "aws",
+							"region":   "us-east-1",
+						},
+						"selected_provider": "aws",
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{
+				"spec": map[string]any{
+					"region": "us-east-1",
+				},
+				"provider": "aws",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Defined).To(BeTrue())
+			Expect(result.Result).NotTo(BeNil())
+
+			decision := opa.ParsePolicyDecision(result.Result)
+			Expect(decision.Rejected).To(BeFalse())
+			Expect(decision.SelectedProvider).To(Equal("aws"))
+		})
+
+		It("handles undefined result", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]any{})
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			result, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Defined).To(BeFalse())
+		})
+
+		It("returns ErrClientInternal when OPA result is not a map", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(http.MethodPost))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				// OPA returned a string instead of an object; client must reject it
+				json.NewEncoder(w).Encode(map[string]any{"result": "not an object"})
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			_, err := client.EvaluatePolicy(ctx, "policies.test_policy", map[string]any{})
+
+			Expect(err).To(MatchError(ContainSubstring("policy main rule must return an object")))
+			Expect(err).To(MatchError(ContainSubstring("string")))
+			Expect(errors.Is(err, opa.ErrClientInternal)).To(BeTrue())
+		})
+
+		It("returns ErrPolicyNotFound when policy doesn't exist", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			_, err := client.EvaluatePolicy(ctx, "nonexistent", map[string]any{})
+
+			Expect(err).To(MatchError(opa.ErrPolicyNotFound))
+		})
+
+		It("returns ErrOPAUnavailable when OPA is unreachable", func() {
+			client := opa.NewClient("http://localhost:1", 100*time.Millisecond)
+			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]any{})
+
+			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
+		})
+
+		It("returns ErrOPAUnavailable for non-200/404 status codes", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			}))
+			defer server.Close()
+
+			client := opa.NewClient(server.URL, 5*time.Second)
+			_, err := client.EvaluatePolicy(ctx, "test_policy", map[string]any{})
 
 			Expect(err).To(MatchError(ContainSubstring("OPA service unavailable")))
 		})
