@@ -16,6 +16,7 @@ The API follows [AEP (API Enhancement Proposals)](https://aep.dev/) standards fo
   - [Policy Management API (Port 8080)](#policy-management-api-port-8080)
   - [Policy Evaluation API (Port 8081)](#policy-evaluation-api-port-8081)
 - [Writing Policies](#writing-policies)
+  - [References](#references)
   - [Rego Policy Structure](#rego-policy-structure)
   - [OPA Input Format](#opa-input-format)
   - [OPA Output Format](#opa-output-format)
@@ -307,6 +308,11 @@ curl -X POST http://localhost:8081/api/v1alpha1/policies:evaluateRequest \
 ## Writing Policies
 
 This section is for policy implementers who write Rego policies evaluated by the Policy Manager.
+
+### References
+
+- [Open Policy Agent](https://www.openpolicyagent.org/docs)
+- [Rego Policy Language](https://www.openpolicyagent.org/docs/policy-language)
 
 ### Rego Policy Structure
 
