@@ -149,7 +149,26 @@ curl -X POST http://localhost:8080/api/v1alpha1/policies \
     "label_selector": {"environment": "production"},
     "rego_code": "package policies.region\n\nmain := {\n  \"rejected\": false,\n  \"patch\": {\"region\": \"us-east-1\"},\n  \"selected_provider\": \"aws\"\n}"
   }'
+```
 
+Example response (201 Created) for the request above. With server-generated ID, `id` and `path` are assigned by the server; with `?id=region-enforcement`, the response would use that id and `path`: `policies/region-enforcement`.
+
+```json
+{
+  "path": "policies/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "display_name": "Region Enforcement",
+  "policy_type": "GLOBAL",
+  "label_selector": {"environment": "production"},
+  "priority": 100,
+  "enabled": true,
+  "rego_code": "package policies.region\n\nmain := {\n  \"rejected\": false,\n  \"patch\": {\"region\": \"us-east-1\"},\n  \"selected_provider\": \"aws\"\n}",
+  "create_time": "2026-01-09T10:30:00Z",
+  "update_time": "2026-01-09T10:30:00Z"
+}
+```
+
+```bash
 # With client-specified ID
 curl -X POST "http://localhost:8080/api/v1alpha1/policies?id=region-enforcement" \
   -H "Content-Type: application/json" \
@@ -160,6 +179,24 @@ curl -X POST "http://localhost:8080/api/v1alpha1/policies?id=region-enforcement"
 
 ```
 GET /api/v1alpha1/policies/{policyId}
+```
+
+Example response (200 OK):
+
+```json
+{
+  "path": "policies/region-enforcement",
+  "id": "region-enforcement",
+  "display_name": "Region Enforcement",
+  "description": "Enforces region constraints for production workloads",
+  "policy_type": "GLOBAL",
+  "label_selector": {"environment": "production"},
+  "priority": 100,
+  "enabled": true,
+  "rego_code": "package policies.region\n\nmain := {\n  \"rejected\": false,\n  \"patch\": {\"region\": \"us-east-1\"},\n  \"selected_provider\": \"aws\"\n}",
+  "create_time": "2026-01-09T10:30:00Z",
+  "update_time": "2026-01-09T15:45:00Z"
+}
 ```
 
 #### List Policies
@@ -181,6 +218,8 @@ GET /api/v1alpha1/policies?max_page_size=10&page_token=<token>
 Supported filter fields: `policy_type` (`GLOBAL`, `USER`), `enabled` (`true`, `false`).
 
 Supported order fields: `priority`, `display_name`, `create_time` (each with `asc` or `desc`).
+
+Note: `Polices`, returned in a `List` call, will have an empty string in their `rego_code` field
 
 #### Update a Policy (Partial)
 
