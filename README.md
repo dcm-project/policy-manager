@@ -358,7 +358,7 @@ This section is for policy implementers who write Rego policies evaluated by the
 Every policy must:
 
 1. Declare a `package` (used by OPA to identify the policy).
-2. Define a `main` rule that returns a decision object.
+2. Define a `main` rule that returns a decision object ([Output Format](#opa-output-format)).
 
 ```rego
 package policies.my_policy
