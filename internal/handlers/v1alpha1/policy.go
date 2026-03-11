@@ -80,6 +80,8 @@ func (h *PolicyHandler) GetPolicy(ctx context.Context, request server.GetPolicyR
 		return h.handleGetPolicyError(err, request), nil
 	}
 
+	log.Debug("GetPolicy request completed", "policy_id", request.PolicyId)
+
 	return server.GetPolicy200JSONResponse(policyV1Alpha1ToServer(*policy)), nil
 }
 
