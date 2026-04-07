@@ -41,14 +41,14 @@ type EvaluationResponse struct {
 // evaluationService implements EvaluationService
 type evaluationService struct {
 	policyStore store.Policy
-	opaClient   opa.Client
+	engine      opa.Engine
 }
 
 // NewEvaluationService creates a new evaluation service
-func NewEvaluationService(policyStore store.Policy, opaClient opa.Client) EvaluationService {
+func NewEvaluationService(policyStore store.Policy, engine opa.Engine) EvaluationService {
 	return &evaluationService{
 		policyStore: policyStore,
-		opaClient:   opaClient,
+		engine:      engine,
 	}
 }
 
@@ -150,8 +150,8 @@ func (s *evaluationService) evaluatePolicy(
 		opaInput["service_provider_constraints"] = spConstraints
 	}
 
-	// 2. Evaluate the policy using the cached package name
-	evalResult, err := s.opaClient.EvaluatePolicy(ctx, policy.PackageName, opaInput)
+	// 2. Evaluate the policy using the embedded engine
+	evalResult, err := s.engine.EvaluatePolicy(ctx, policy.ID, opaInput)
 	if err != nil {
 		return nil, "", NewInternalError(
 			fmt.Sprintf("Failed to evaluate policy '%s'", policy.ID),

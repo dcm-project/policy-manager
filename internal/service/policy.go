@@ -11,7 +11,6 @@ import (
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/logging"
 	"github.com/dcm-project/policy-manager/internal/opa"
-	"github.com/dcm-project/policy-manager/internal/rego"
 	"github.com/dcm-project/policy-manager/internal/store"
 	"github.com/google/uuid"
 )
@@ -27,6 +26,7 @@ var idPattern = regexp.MustCompile(`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // PolicyService defines the interface for policy business logic operations.
 type PolicyService interface {
+	CompileAll(ctx context.Context) error
 	CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error)
 	GetPolicy(ctx context.Context, id string) (*v1alpha1.Policy, error)
 	ListPolicies(ctx context.Context, filter *string, orderBy *string, pageToken *string, pageSize *int32) (*v1alpha1.PolicyList, error)
@@ -36,17 +36,17 @@ type PolicyService interface {
 
 // PolicyServiceImpl implements the PolicyService interface.
 type PolicyServiceImpl struct {
-	store     store.Store
-	opaClient opa.Client
+	store  store.Store
+	engine opa.Engine
 }
 
 var _ PolicyService = (*PolicyServiceImpl)(nil)
 
 // NewPolicyService creates a new PolicyService instance.
-func NewPolicyService(store store.Store, opaClient opa.Client) *PolicyServiceImpl {
+func NewPolicyService(store store.Store, engine opa.Engine) *PolicyServiceImpl {
 	return &PolicyServiceImpl{
-		store:     store,
-		opaClient: opaClient,
+		store:  store,
+		engine: engine,
 	}
 }
 
@@ -108,6 +108,29 @@ func validatePriority(priority *int32) error {
 	return nil
 }
 
+// CompileAll loads all policies from the store and compiles them into the engine.
+func (s *PolicyServiceImpl) CompileAll(ctx context.Context) error {
+	return s.recompileEngine(ctx)
+}
+
+// recompileEngine loads all policies from the store and recompiles the engine.
+func (s *PolicyServiceImpl) recompileEngine(ctx context.Context) error {
+	allPolicies, err := s.store.Policy().ListAll(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list policies for recompilation: %w", err)
+	}
+
+	modules := make([]opa.PolicyModule, len(allPolicies))
+	for i, p := range allPolicies {
+		modules[i] = opa.PolicyModule{
+			ID:       p.ID,
+			RegoCode: p.RegoCode,
+		}
+	}
+
+	return s.engine.Compile(ctx, modules)
+}
+
 // CreatePolicy creates a new policy resource.
 // Required fields (display_name, policy_type, rego_code) are enforced here since the schema has no required.
 func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error) {
@@ -123,44 +146,38 @@ func (s *PolicyServiceImpl) CreatePolicy(ctx context.Context, policy v1alpha1.Po
 	log := logging.FromContext(ctx)
 	log.Debug("Creating policy", "policy_id", *policyID)
 
-	// Extract package name from Rego code (fail fast before any storage)
-	packageName, err := rego.ExtractPackageName(*policy.RegoCode)
-	if err != nil {
-		return nil, NewInvalidArgumentError(
-			"Invalid Rego code",
-			fmt.Sprintf("Failed to extract package name: %v", err),
-		)
+	// Validate Rego via engine
+	if err := s.engine.ValidateRego(ctx, *policy.RegoCode); err != nil {
+		return nil, handleEngineError(err, "create")
 	}
 
-	// Convert API model to DB model (strips RegoCode)
+	// Convert API model to DB model (includes RegoCode)
 	dbPolicy := APIToDBModel(policy, *policyID)
-	// Set package name extracted from Rego code
-	dbPolicy.PackageName = packageName
 
-	// Create policy in store first (duplicate ID fails here without touching OPA)
+	// Create policy in store (duplicate ID fails here)
 	created, err := s.store.Policy().Create(ctx, dbPolicy)
 	if err != nil {
 		log.Error("Failed to create policy in store", "policy_id", *policyID, "error", err)
 		return nil, processPolicyStoreError(err, dbPolicy, "create")
 	}
 
-	// Store Rego in OPA (validates syntax and stores)
-	if err := s.opaClient.StorePolicy(ctx, *policyID, *policy.RegoCode); err != nil {
-		log.Error("Failed to store policy in OPA, rolling back DB", "policy_id", *policyID, "error", err)
-		// Rollback: Delete from DB since OPA store failed
+	// Recompile the engine with the new policy
+	if err := s.recompileEngine(ctx); err != nil {
+		log.Error("Failed to recompile engine after create, rolling back DB", "policy_id", *policyID, "error", err)
+		// Rollback: Delete from DB since recompilation failed
 		if delErr := s.store.Policy().Delete(ctx, *policyID); delErr != nil {
-			log.Error("Failed to rollback DB policy after OPA store failure",
+			log.Error("Failed to rollback DB policy after compile failure",
 				"policy_id", *policyID,
 				"db_error", delErr,
-				"opa_error", err)
+				"compile_error", err)
 		}
-		return nil, handleOPAError(err, "create")
+		return nil, NewInternalError("Failed to compile policies after create", err.Error(), err)
 	}
 
-	// Convert back to API model with empty RegoCode and set Path
+	// Convert back to API model
 	apiPolicy := DBToAPIModel(created)
 
-	log.Debug("Policy created successfully", "policy_id", *policyID, "package_name", packageName)
+	log.Debug("Policy created successfully", "policy_id", *policyID)
 	return &apiPolicy, nil
 }
 
@@ -169,7 +186,7 @@ func (s *PolicyServiceImpl) GetPolicy(ctx context.Context, id string) (*v1alpha1
 	log := logging.FromContext(ctx)
 	log.Debug("Getting policy", "policy_id", id)
 
-	// Get policy from store
+	// Get policy from store (includes RegoCode)
 	dbPolicy, err := s.store.Policy().Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
@@ -179,17 +196,8 @@ func (s *PolicyServiceImpl) GetPolicy(ctx context.Context, id string) (*v1alpha1
 		return nil, NewInternalError("Failed to get policy", err.Error(), err)
 	}
 
-	// Convert to API model
+	// Convert to API model (includes RegoCode from DB)
 	apiPolicy := DBToAPIModel(dbPolicy)
-
-	// Retrieve Rego code from OPA
-	regoCode, err := s.opaClient.GetPolicy(ctx, id)
-	if err != nil {
-		log.Error("Failed to retrieve Rego code from OPA", "policy_id", id, "error", err)
-		// Missing Rego in OPA is an error condition (every policy must have Rego)
-		return nil, handleOPAError(err, "get")
-	}
-	apiPolicy.RegoCode = &regoCode
 
 	return &apiPolicy, nil
 }
@@ -396,57 +404,41 @@ func (s *PolicyServiceImpl) UpdatePolicy(ctx context.Context, id string, patch *
 	}
 	merged := mergePolicyOntoPolicy(patch, existing)
 
-	// If RegoCode is being updated, handle OPA update with rollback capability
-	var oldRegoCode string
-	var newPackageName string
-	if patch != nil && patch.RegoCode != nil {
-		// Extract package name from new Rego code (fail fast before OPA storage)
-		packageName, err := rego.ExtractPackageName(*patch.RegoCode)
-		if err != nil {
-			return nil, NewInvalidArgumentError(
-				"Invalid Rego code",
-				fmt.Sprintf("Failed to extract package name: %v", err),
-			)
-		}
-		newPackageName = packageName
-
-		// Get old Rego from OPA for potential rollback
-		oldRegoCode, err = s.opaClient.GetPolicy(ctx, id)
-		if err != nil {
-			log.Error("Failed to get existing Rego from OPA for update", "policy_id", id, "error", err)
-			return nil, handleOPAError(err, "update")
+	// If RegoCode is being updated, validate it
+	regoChanged := patch != nil && patch.RegoCode != nil
+	if regoChanged {
+		// Validate Rego via engine
+		if err := s.engine.ValidateRego(ctx, *patch.RegoCode); err != nil {
+			return nil, handleEngineError(err, "update")
 		}
 
-		// Store new Rego in OPA (validates syntax and stores)
-		if err := s.opaClient.StorePolicy(ctx, id, *patch.RegoCode); err != nil {
-			log.Error("Failed to store updated Rego in OPA", "policy_id", id, "error", err)
-			return nil, handleOPAError(err, "update")
-		}
-
-		log.Debug("Rego code updated in OPA", "policy_id", id, "package_name", newPackageName)
+		log.Debug("Rego code validated", "policy_id", id)
 	}
+
+	// Save the existing DB state for potential rollback
+	previousDB := *existingDB
 
 	// Convert API model to DB model and update store
 	dbPolicy := APIToDBModel(merged, id)
-	// Update package name if RegoCode was changed
-	if patch != nil && patch.RegoCode != nil {
-		dbPolicy.PackageName = newPackageName
-	} else {
-		dbPolicy.PackageName = existingDB.PackageName
-	}
 	updated, err := s.store.Policy().Update(ctx, dbPolicy)
 	if err != nil {
 		log.Error("Failed to update policy in store", "policy_id", id, "error", err)
-		// Rollback: Restore old Rego if we have it
-		if patch != nil && patch.RegoCode != nil && oldRegoCode != "" {
-			if rollbackErr := s.opaClient.StorePolicy(ctx, id, oldRegoCode); rollbackErr != nil {
-				log.Error("Failed to rollback OPA policy after DB update failure",
-					"policy_id", id,
-					"opa_error", rollbackErr,
-					"db_error", err)
-			}
-		}
 		return nil, processPolicyStoreError(err, dbPolicy, "update")
+	}
+
+	// Recompile engine if Rego changed
+	if regoChanged {
+		if err := s.recompileEngine(ctx); err != nil {
+			log.Error("Failed to recompile engine after update, rolling back DB", "policy_id", id, "error", err)
+			// Rollback: restore previous DB state
+			if _, rollbackErr := s.store.Policy().Update(ctx, previousDB); rollbackErr != nil {
+				log.Error("Failed to rollback DB policy after compile failure",
+					"policy_id", id,
+					"db_error", rollbackErr,
+					"compile_error", err)
+			}
+			return nil, NewInternalError("Failed to compile policies after update", err.Error(), err)
+		}
 	}
 
 	// Convert back to API model
@@ -461,7 +453,7 @@ func (s *PolicyServiceImpl) DeletePolicy(ctx context.Context, id string) error {
 	log := logging.FromContext(ctx)
 	log.Debug("Deleting policy", "policy_id", id)
 
-	// Delete policy from store first
+	// Delete policy from store
 	err := s.store.Policy().Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrPolicyNotFound) {
@@ -471,11 +463,9 @@ func (s *PolicyServiceImpl) DeletePolicy(ctx context.Context, id string) error {
 		return NewInternalError("Failed to delete policy", err.Error(), err)
 	}
 
-	// Best effort cleanup from OPA (log errors but don't fail the operation)
-	if err := s.opaClient.DeletePolicy(ctx, id); err != nil {
-		log.Warn("Failed to delete policy from OPA (orphaned policy may exist)",
-			"policy_id", id,
-			"error", err)
+	// Recompile engine without the deleted policy
+	if err := s.recompileEngine(ctx); err != nil {
+		log.Warn("Failed to recompile engine after delete", "policy_id", id, "error", err)
 	}
 
 	log.Debug("Policy deleted successfully", "policy_id", id)

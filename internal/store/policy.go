@@ -42,6 +42,7 @@ type PolicyListResult struct {
 
 type Policy interface {
 	List(ctx context.Context, opts *PolicyListOptions) (*PolicyListResult, error)
+	ListAll(ctx context.Context) (model.PolicyList, error)
 	Create(ctx context.Context, policy model.Policy) (*model.Policy, error)
 	Delete(ctx context.Context, id string) error
 	Update(ctx context.Context, policy model.Policy) (*model.Policy, error)
@@ -187,7 +188,7 @@ func (s *PolicyStore) Update(ctx context.Context, policy model.Policy) (*model.P
 	// Use Select to update all mutable fields including zero values
 	// Immutable fields (id, policy_type, create_time) are not updated
 	result := s.db.WithContext(ctx).Model(&policy).
-		Select("display_name", "description", "label_selector", "priority", "package_name", "enabled").
+		Select("display_name", "description", "label_selector", "priority", "rego_code", "enabled").
 		Clauses(clause.Returning{}).
 		Updates(&policy)
 	if result.Error != nil {
@@ -197,6 +198,17 @@ func (s *PolicyStore) Update(ctx context.Context, policy model.Policy) (*model.P
 		return nil, ErrPolicyNotFound
 	}
 	return &policy, nil
+}
+
+func (s *PolicyStore) ListAll(ctx context.Context) (model.PolicyList, error) {
+	var policies model.PolicyList
+	if err := s.db.WithContext(ctx).Order("id ASC").Find(&policies).Error; err != nil {
+		return nil, err
+	}
+	if policies == nil {
+		policies = model.PolicyList{}
+	}
+	return policies, nil
 }
 
 func (s *PolicyStore) Get(ctx context.Context, id string) (*model.Policy, error) {

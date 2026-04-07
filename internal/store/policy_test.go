@@ -327,6 +327,83 @@ var _ = Describe("Policy Store", func() {
 		})
 	})
 
+	Describe("ListAll", func() {
+		It("returns all policies with RegoCode", func() {
+			p1 := newPolicy("all-a")
+			p1.RegoCode = "package all_a\nmain = true"
+			_, err := policyStore.Create(ctx, p1)
+			Expect(err).NotTo(HaveOccurred())
+
+			p2 := newPolicy("all-b")
+			p2.RegoCode = "package all_b\nmain = true"
+			_, err = policyStore.Create(ctx, p2)
+			Expect(err).NotTo(HaveOccurred())
+
+			p3 := newPolicy("all-c")
+			p3.RegoCode = "package all_c\nmain = true"
+			_, err = policyStore.Create(ctx, p3)
+			Expect(err).NotTo(HaveOccurred())
+
+			policies, err := policyStore.ListAll(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(policies).To(HaveLen(3))
+			for _, p := range policies {
+				Expect(p.RegoCode).NotTo(BeEmpty())
+			}
+		})
+
+		It("returns empty slice on empty DB", func() {
+			policies, err := policyStore.ListAll(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(policies).NotTo(BeNil())
+			Expect(policies).To(HaveLen(0))
+		})
+
+		It("returns policies ordered by ID", func() {
+			// Create in non-alphabetical order
+			for _, id := range []string{"c-policy", "a-policy", "b-policy"} {
+				p := newPolicy(id)
+				_, err := policyStore.Create(ctx, p)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			policies, err := policyStore.ListAll(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(policies).To(HaveLen(3))
+			Expect(policies[0].ID).To(Equal("a-policy"))
+			Expect(policies[1].ID).To(Equal("b-policy"))
+			Expect(policies[2].ID).To(Equal("c-policy"))
+		})
+	})
+
+	Describe("RegoCode persistence", func() {
+		It("persists rego_code on create", func() {
+			p := newPolicy("rego-create")
+			p.RegoCode = "package rego_create\nmain = true"
+			_, err := policyStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
+
+			found, err := policyStore.Get(ctx, "rego-create")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.RegoCode).To(Equal("package rego_create\nmain = true"))
+		})
+
+		It("updates rego_code", func() {
+			p := newPolicy("rego-update")
+			p.RegoCode = "package old"
+			_, err := policyStore.Create(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.RegoCode = "package new"
+			_, err = policyStore.Update(ctx, p)
+			Expect(err).NotTo(HaveOccurred())
+
+			found, err := policyStore.Get(ctx, "rego-update")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(found.RegoCode).To(Equal("package new"))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("removes the policy", func() {
 			p := newPolicy("to-delete")
@@ -434,7 +511,8 @@ func newPolicy(id string) model.Policy {
 		LabelSelector: map[string]string{
 			"environment": "test",
 		},
-		Priority: priority,
-		Enabled:  true,
+		Priority:    priority,
+		RegoCode:    "package test\nmain = true",
+		Enabled:     true,
 	}
 }
