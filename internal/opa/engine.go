@@ -1,3 +1,4 @@
+// Package opa provides an embedded OPA engine for policy compilation and evaluation.
 package opa
 
 import (
@@ -30,8 +31,8 @@ type PolicyModule struct {
 
 // embeddedEngine implements Engine using OPA's Go library
 type embeddedEngine struct {
-	mu        sync.RWMutex                      // protects reads/writes of queries
-	compileMu sync.Mutex                        // serializes Compile calls
+	mu        sync.RWMutex // protects reads/writes of queries
+	compileMu sync.Mutex   // serializes Compile calls
 	queries   map[string]*rego.PreparedEvalQuery
 }
 

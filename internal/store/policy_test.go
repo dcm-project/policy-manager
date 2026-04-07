@@ -356,7 +356,7 @@ var _ = Describe("Policy Store", func() {
 			policies, err := policyStore.ListAll(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(policies).NotTo(BeNil())
-			Expect(policies).To(HaveLen(0))
+			Expect(policies).To(BeEmpty())
 		})
 
 		It("returns policies ordered by ID", func() {
@@ -511,8 +511,8 @@ func newPolicy(id string) model.Policy {
 		LabelSelector: map[string]string{
 			"environment": "test",
 		},
-		Priority:    priority,
-		RegoCode:    "package test\nmain = true",
-		Enabled:     true,
+		Priority: priority,
+		RegoCode: "package test\nmain = true",
+		Enabled:  true,
 	}
 }

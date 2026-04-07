@@ -120,7 +120,6 @@ var _ = Describe("EvaluationService", func() {
 						Enabled:       true,
 						PolicyType:    "GLOBAL",
 						Priority:      100,
-						
 						LabelSelector: map[string]string{"env": "prod"},
 					},
 				}
@@ -140,11 +139,10 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
@@ -176,11 +174,10 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
@@ -215,11 +212,10 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
@@ -248,18 +244,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
@@ -306,18 +300,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
@@ -365,18 +357,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "USER",
-						Priority:    100,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "USER",
+						Priority:   100,
 					},
 				}
 
@@ -419,18 +409,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "USER",
-						Priority:    100,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "USER",
+						Priority:   100,
 					},
 				}
 
@@ -476,11 +464,10 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
@@ -501,11 +488,11 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:            "policy-1",
-						Enabled:       true,
-						PolicyType:    "GLOBAL",
-						Priority:      100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
+
 						LabelSelector: map[string]string{"env": "prod", "team": "backend"},
 					},
 				}
@@ -553,18 +540,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
@@ -614,18 +599,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
