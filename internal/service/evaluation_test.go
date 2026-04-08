@@ -36,6 +36,13 @@ func (m *mockPolicyStore) List(_ context.Context, _ *store.PolicyListOptions) (*
 	}, nil
 }
 
+func (m *mockPolicyStore) ListAll(_ context.Context) (model.PolicyList, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.policies, nil
+}
+
 func (m *mockPolicyStore) Update(_ context.Context, _ model.Policy) (*model.Policy, error) {
 	return nil, errors.New("not implemented")
 }
@@ -44,28 +51,24 @@ func (m *mockPolicyStore) Delete(_ context.Context, _ string) error {
 	return errors.New("not implemented")
 }
 
-type mockOPAClient struct {
+type mockEngine struct {
 	evaluations map[string]*opa.EvaluationResult
 	err         error
 }
 
-func (m *mockOPAClient) StorePolicy(_ context.Context, _ string, _ string) error {
-	return errors.New("not implemented")
+func (m *mockEngine) Compile(_ context.Context, _ []opa.PolicyModule) error {
+	return nil
 }
 
-func (m *mockOPAClient) GetPolicy(_ context.Context, _ string) (string, error) {
-	return "", errors.New("not implemented")
+func (m *mockEngine) ValidateRego(_ context.Context, _ string) error {
+	return nil
 }
 
-func (m *mockOPAClient) DeletePolicy(_ context.Context, _ string) error {
-	return errors.New("not implemented")
-}
-
-func (m *mockOPAClient) EvaluatePolicy(_ context.Context, packageName string, _ map[string]any) (*opa.EvaluationResult, error) {
+func (m *mockEngine) EvaluatePolicy(_ context.Context, policyID string, _ map[string]any) (*opa.EvaluationResult, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	if result, ok := m.evaluations[packageName]; ok {
+	if result, ok := m.evaluations[policyID]; ok {
 		return result, nil
 	}
 	// Return undefined result by default
@@ -76,7 +79,7 @@ var _ = Describe("EvaluationService", func() {
 	var (
 		ctx         context.Context
 		mockStore   *mockPolicyStore
-		mockOPA     *mockOPAClient
+		mockOPA     *mockEngine
 		service     EvaluationService
 		baseRequest *EvaluationRequest
 	)
@@ -86,7 +89,7 @@ var _ = Describe("EvaluationService", func() {
 		mockStore = &mockPolicyStore{
 			policies: []model.Policy{},
 		}
-		mockOPA = &mockOPAClient{
+		mockOPA = &mockEngine{
 			evaluations: make(map[string]*opa.EvaluationResult),
 		}
 		service = NewEvaluationService(mockStore, mockOPA)
@@ -117,7 +120,6 @@ var _ = Describe("EvaluationService", func() {
 						Enabled:       true,
 						PolicyType:    "GLOBAL",
 						Priority:      100,
-						PackageName:   "policies.policy_1",
 						LabelSelector: map[string]string{"env": "prod"},
 					},
 				}
@@ -137,15 +139,14 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -173,15 +174,14 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -212,15 +212,14 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected":         true,
@@ -245,23 +244,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
 				// First policy sets region with a const constraint
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -277,7 +274,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Second policy tries to change region, violating the constraint
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -303,23 +300,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
 				// First policy sets minimum constraint
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -333,7 +328,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Second policy tries to lower the minimum — loosening
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -362,23 +357,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "USER",
-						Priority:    100,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "USER",
+						Priority:   100,
 					},
 				}
 
 				// First policy adds region
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -389,7 +382,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Second policy adds instance_type (no conflict — no constraint on region)
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -416,23 +409,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "USER",
-						Priority:    100,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "USER",
+						Priority:   100,
 					},
 				}
 
 				// First policy sets cpu_count=2 with range constraint 1-4
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -449,7 +440,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Second policy changes cpu_count to 4 — within constraint range
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -473,11 +464,10 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 				}
 
@@ -498,16 +488,16 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:            "policy-1",
-						Enabled:       true,
-						PolicyType:    "GLOBAL",
-						Priority:      100,
-						PackageName:   "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
+
 						LabelSelector: map[string]string{"env": "prod", "team": "backend"},
 					},
 				}
 
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -550,23 +540,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
 				// First policy sets constraint
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -579,7 +567,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Capture input for second policy
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: false,
 				}
 			})
@@ -590,7 +578,7 @@ var _ = Describe("EvaluationService", func() {
 				mockOPA.evaluations = nil
 
 				evalCount := 0
-				customOPA := &mockOPAClientWithCapture{
+				customOPA := &mockEngineWithCapture{
 					evaluations: originalEval,
 					captureFunc: func(input map[string]any) {
 						evalCount++
@@ -611,23 +599,21 @@ var _ = Describe("EvaluationService", func() {
 			BeforeEach(func() {
 				mockStore.policies = []model.Policy{
 					{
-						ID:          "policy-1",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    100,
-						PackageName: "policies.policy_1",
+						ID:         "policy-1",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   100,
 					},
 					{
-						ID:          "policy-2",
-						Enabled:     true,
-						PolicyType:  "GLOBAL",
-						Priority:    200,
-						PackageName: "policies.policy_2",
+						ID:         "policy-2",
+						Enabled:    true,
+						PolicyType: "GLOBAL",
+						Priority:   200,
 					},
 				}
 
 				// First policy sets SP constraint allow list
-				mockOPA.evaluations["policies.policy_1"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-1"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected": false,
@@ -638,7 +624,7 @@ var _ = Describe("EvaluationService", func() {
 				}
 
 				// Second policy selects a provider not in allow list
-				mockOPA.evaluations["policies.policy_2"] = &opa.EvaluationResult{
+				mockOPA.evaluations["policy-2"] = &opa.EvaluationResult{
 					Defined: true,
 					Result: map[string]any{
 						"rejected":          false,
@@ -661,29 +647,25 @@ var _ = Describe("EvaluationService", func() {
 	})
 })
 
-// mockOPAClientWithCapture wraps mockOPAClient and captures inputs
-type mockOPAClientWithCapture struct {
+// mockEngineWithCapture wraps mockEngine and captures inputs
+type mockEngineWithCapture struct {
 	evaluations map[string]*opa.EvaluationResult
 	captureFunc func(input map[string]any)
 }
 
-func (m *mockOPAClientWithCapture) StorePolicy(_ context.Context, _ string, _ string) error {
-	return errors.New("not implemented")
+func (m *mockEngineWithCapture) Compile(_ context.Context, _ []opa.PolicyModule) error {
+	return nil
 }
 
-func (m *mockOPAClientWithCapture) GetPolicy(_ context.Context, _ string) (string, error) {
-	return "", errors.New("not implemented")
+func (m *mockEngineWithCapture) ValidateRego(_ context.Context, _ string) error {
+	return nil
 }
 
-func (m *mockOPAClientWithCapture) DeletePolicy(_ context.Context, _ string) error {
-	return errors.New("not implemented")
-}
-
-func (m *mockOPAClientWithCapture) EvaluatePolicy(_ context.Context, packageName string, input map[string]any) (*opa.EvaluationResult, error) {
+func (m *mockEngineWithCapture) EvaluatePolicy(_ context.Context, policyID string, input map[string]any) (*opa.EvaluationResult, error) {
 	if m.captureFunc != nil {
 		m.captureFunc(input)
 	}
-	if result, ok := m.evaluations[packageName]; ok {
+	if result, ok := m.evaluations[policyID]; ok {
 		return result, nil
 	}
 	return &opa.EvaluationResult{Defined: false}, nil

@@ -19,6 +19,10 @@ type MockPolicyService struct {
 	DeletePolicyFn func(ctx context.Context, id string) error
 }
 
+func (m *MockPolicyService) CompileAll(_ context.Context) error {
+	return nil
+}
+
 func (m *MockPolicyService) CreatePolicy(ctx context.Context, policy v1alpha1.Policy, clientID *string) (*v1alpha1.Policy, error) {
 	if m.CreatePolicyFn != nil {
 		return m.CreatePolicyFn(ctx, policy, clientID)

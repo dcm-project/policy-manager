@@ -3,7 +3,6 @@
 package e2e_test
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
-	"github.com/dcm-project/policy-manager/internal/opa"
 )
 
 var (
@@ -1496,9 +1494,10 @@ allow if {
 			policyID := *createResp.JSON201.Id
 			// Do not append to createdPolicyIDs - we are testing delete
 
-			// Verify policy exists in OPA before delete
-			_, err = opaClient.GetPolicy(ctx, policyID)
-			Expect(err).NotTo(HaveOccurred(), "Policy should exist in OPA after create")
+			// Verify policy exists via API before delete
+			getBeforeResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(getBeforeResp.StatusCode()).To(Equal(http.StatusOK), "Policy should exist after create")
 
 			deleteResp, err := apiClient.DeletePolicyWithResponse(ctx, policyID)
 			Expect(err).NotTo(HaveOccurred())
@@ -1508,14 +1507,9 @@ allow if {
 			getResp, err := apiClient.GetPolicyWithResponse(ctx, policyID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(getResp.StatusCode()).To(Equal(http.StatusNotFound))
-
-			// Verify Rego was removed from OPA
-			_, err = opaClient.GetPolicy(ctx, policyID)
-			Expect(err).To(HaveOccurred(), "Policy should no longer exist in OPA after delete")
-			Expect(errors.Is(err, opa.ErrPolicyNotFound)).To(BeTrue(), "OPA should return policy not found")
 		})
 
-		It("should return empty rego_code in LIST responses", func() {
+		It("should return rego_code in LIST responses", func() {
 			regoCode := "package test\n\ndefault allow = false"
 			policy := v1alpha1.Policy{
 				DisplayName: ptr("List Test Policy"),
@@ -1544,7 +1538,7 @@ allow if {
 				if *p.Id == policyID {
 					found = true
 					Expect(p.RegoCode).NotTo(BeNil())
-					Expect(*p.RegoCode).To(Equal(""), "LIST should return empty rego_code for performance")
+					Expect(*p.RegoCode).To(Equal(regoCode), "LIST should return full rego_code")
 					break
 				}
 			}

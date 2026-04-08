@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/dcm-project/policy-manager/internal/apiserver"
 	"github.com/dcm-project/policy-manager/internal/config"
@@ -46,7 +45,6 @@ func run() int {
 		"log_level", cfg.Service.LogLevel,
 		"db_type", cfg.Database.Type,
 		"db_host", cfg.Database.Hostname,
-		"opa_url", cfg.OPA.URL,
 	)
 
 	// Initialize database
@@ -65,20 +63,19 @@ func run() int {
 		}
 	}()
 
-	// Parse OPA timeout
-	opaTimeout, err := time.ParseDuration(cfg.OPA.Timeout)
-	if err != nil {
-		slog.Error("Failed to parse OPA timeout", "error", err, "timeout", cfg.OPA.Timeout)
-		return 1
-	}
-
-	// Initialize OPA client
-	opaClient := opa.NewClient(cfg.OPA.URL, opaTimeout)
-	slog.Info("OPA client initialized", "url", cfg.OPA.URL, "timeout", opaTimeout)
+	// Initialize embedded OPA engine
+	opaEngine := opa.NewEngine()
 
 	// Create services
-	policyService := service.NewPolicyService(dataStore, opaClient)
-	evaluationService := service.NewEvaluationService(dataStore.Policy(), opaClient)
+	policyService := service.NewPolicyService(dataStore, opaEngine)
+	evaluationService := service.NewEvaluationService(dataStore.Policy(), opaEngine)
+
+	// Load all policies from DB and compile into engine on startup
+	if err := policyService.CompileAll(context.Background()); err != nil {
+		slog.Error("Failed to compile policies on startup", "error", err)
+		return 1
+	}
+	slog.Info("Embedded OPA engine initialized")
 
 	// Create public API handler
 	policyHandler := v1alpha1.NewPolicyHandler(policyService)

@@ -12,8 +12,6 @@ const (
 )
 
 // APIToDBModel converts an API Policy model to a database Policy model.
-// RegoCode is stripped as it's not stored in the database.
-// PackageName must be set separately by the caller after extracting it from the Rego code.
 // All Policy fields are optional in the schema; required fields for create are enforced by the service.
 func APIToDBModel(api v1alpha1.Policy, id string) model.Policy {
 	db := model.Policy{ID: id}
@@ -41,15 +39,16 @@ func APIToDBModel(api v1alpha1.Policy, id string) model.Policy {
 	if api.LabelSelector != nil {
 		db.LabelSelector = *api.LabelSelector
 	}
+	if api.RegoCode != nil {
+		db.RegoCode = *api.RegoCode
+	}
 
 	return db
 }
 
 // DBToAPIModel converts a database Policy model to an API Policy model.
-// Path is set, RegoCode is empty (not stored in DB), timestamps included.
 func DBToAPIModel(db *model.Policy) v1alpha1.Policy {
 	path := fmt.Sprintf("policies/%s", db.ID)
-	regoCode := ""
 	displayName := db.DisplayName
 	policyType := v1alpha1.PolicyPolicyType(db.PolicyType)
 	api := v1alpha1.Policy{
@@ -61,7 +60,7 @@ func DBToAPIModel(db *model.Policy) v1alpha1.Policy {
 		Enabled:     &db.Enabled,
 		CreateTime:  &db.CreateTime,
 		UpdateTime:  &db.UpdateTime,
-		RegoCode:    &regoCode,
+		RegoCode:    &db.RegoCode,
 	}
 	if db.Description != "" {
 		api.Description = &db.Description
