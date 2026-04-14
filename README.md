@@ -807,6 +807,12 @@ The `Containerfile` uses a multi-stage build:
 podman build -f Containerfile -t policy-manager .
 ```
 
+### Releasing
+
+Images are pushed to `quay.io/dcm-project/policy-manager`.
+See [Releasing](https://github.com/dcm-project/shared-workflows#release-flow)
+in shared-workflows for the full release process, tag behavior, and version conventions.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) for details.
