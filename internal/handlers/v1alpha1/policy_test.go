@@ -126,6 +126,7 @@ var _ = Describe("PolicyHandler", func() {
 			createResponse, ok := response.(server.CreatePolicy201JSONResponse)
 			Expect(ok).To(BeTrue(), "response should be CreatePolicy201JSONResponse")
 			Expect(*createResponse.Body.Id).To(Equal("test-policy"))
+			Expect(createResponse.Headers.Location).To(Equal("/api/v1alpha1/policies/test-policy"))
 		})
 
 		It("should return 400 when body is nil", func() {
@@ -227,7 +228,7 @@ var _ = Describe("PolicyHandler", func() {
 			pt2 := v1alpha1.USER
 			mockService.ListPoliciesFn = func(_ context.Context, _ *string, _ *string, _ *string, _ *int32) (*v1alpha1.PolicyList, error) {
 				return &v1alpha1.PolicyList{
-					Policies: []v1alpha1.Policy{
+					Results: []v1alpha1.Policy{
 						{
 							Id:          &policyID1,
 							Path:        &path1,
@@ -254,9 +255,9 @@ var _ = Describe("PolicyHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			listResponse, ok := response.(server.ListPolicies200JSONResponse)
 			Expect(ok).To(BeTrue(), "response should be ListPolicies200JSONResponse")
-			Expect(listResponse.Policies).To(HaveLen(2))
-			Expect(*listResponse.Policies[0].Id).To(Equal("policy-1"))
-			Expect(*listResponse.Policies[1].Id).To(Equal("policy-2"))
+			Expect(listResponse.Results).To(HaveLen(2))
+			Expect(*listResponse.Results[0].Id).To(Equal("policy-1"))
+			Expect(*listResponse.Results[1].Id).To(Equal("policy-2"))
 		})
 
 		It("should pass filter parameter to service", func() {
@@ -267,7 +268,7 @@ var _ = Describe("PolicyHandler", func() {
 			mockService.ListPoliciesFn = func(_ context.Context, filter *string, _ *string, _ *string, _ *int32) (*v1alpha1.PolicyList, error) {
 				receivedFilter = filter
 				return &v1alpha1.PolicyList{
-					Policies: []v1alpha1.Policy{},
+					Results: []v1alpha1.Policy{},
 				}, nil
 			}
 
@@ -293,7 +294,7 @@ var _ = Describe("PolicyHandler", func() {
 				receivedPageToken = pageToken
 				receivedPageSize = pageSize
 				return &v1alpha1.PolicyList{
-					Policies: []v1alpha1.Policy{},
+					Results: []v1alpha1.Policy{},
 				}, nil
 			}
 

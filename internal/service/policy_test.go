@@ -495,13 +495,13 @@ var _ = Describe("PolicyService", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).NotTo(BeNil())
-			Expect(result.Policies).To(HaveLen(4))
+			Expect(result.Results).To(HaveLen(4))
 			// Default order is policy_type ASC, priority ASC, id ASC
 			// GLOBAL policies first, then USER policies
-			Expect(*result.Policies[0].Id).To(Equal("policy-1")) // GLOBAL, priority 100
-			Expect(*result.Policies[1].Id).To(Equal("policy-3")) // GLOBAL, priority 300
-			Expect(*result.Policies[2].Id).To(Equal("policy-2")) // USER, priority 200
-			Expect(*result.Policies[3].Id).To(Equal("policy-4")) // USER, priority 400
+			Expect(*result.Results[0].Id).To(Equal("policy-1")) // GLOBAL, priority 100
+			Expect(*result.Results[1].Id).To(Equal("policy-3")) // GLOBAL, priority 300
+			Expect(*result.Results[2].Id).To(Equal("policy-2")) // USER, priority 200
+			Expect(*result.Results[3].Id).To(Equal("policy-4")) // USER, priority 400
 		})
 
 		It("should filter by policy_type=GLOBAL", func() {
@@ -509,8 +509,8 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, &filter, nil, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(2))
-			for _, p := range result.Policies {
+			Expect(result.Results).To(HaveLen(2))
+			for _, p := range result.Results {
 				Expect(p.PolicyType).NotTo(BeNil())
 				Expect(*p.PolicyType).To(Equal(v1alpha1.GLOBAL))
 			}
@@ -521,8 +521,8 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, &filter, nil, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(2))
-			for _, p := range result.Policies {
+			Expect(result.Results).To(HaveLen(2))
+			for _, p := range result.Results {
 				Expect(p.PolicyType).NotTo(BeNil())
 				Expect(*p.PolicyType).To(Equal(v1alpha1.USER))
 			}
@@ -533,8 +533,8 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, &filter, nil, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(2))
-			for _, p := range result.Policies {
+			Expect(result.Results).To(HaveLen(2))
+			for _, p := range result.Results {
 				Expect(*p.Enabled).To(BeTrue())
 			}
 		})
@@ -544,8 +544,8 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, &filter, nil, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(2))
-			for _, p := range result.Policies {
+			Expect(result.Results).To(HaveLen(2))
+			for _, p := range result.Results {
 				Expect(*p.Enabled).To(BeFalse())
 			}
 		})
@@ -555,8 +555,8 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, &filter, nil, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(1))
-			Expect(*result.Policies[0].Id).To(Equal("policy-1"))
+			Expect(result.Results).To(HaveLen(1))
+			Expect(*result.Results[0].Id).To(Equal("policy-1"))
 		})
 
 		It("should order by priority desc", func() {
@@ -564,11 +564,11 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, nil, &orderBy, nil, nil)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(4))
-			Expect(*result.Policies[0].Id).To(Equal("policy-4"))
-			Expect(*result.Policies[1].Id).To(Equal("policy-3"))
-			Expect(*result.Policies[2].Id).To(Equal("policy-2"))
-			Expect(*result.Policies[3].Id).To(Equal("policy-1"))
+			Expect(result.Results).To(HaveLen(4))
+			Expect(*result.Results[0].Id).To(Equal("policy-4"))
+			Expect(*result.Results[1].Id).To(Equal("policy-3"))
+			Expect(*result.Results[2].Id).To(Equal("policy-2"))
+			Expect(*result.Results[3].Id).To(Equal("policy-1"))
 		})
 
 		It("should support pagination", func() {
@@ -576,14 +576,14 @@ var _ = Describe("PolicyService", func() {
 			result, err := policyService.ListPolicies(ctx, nil, nil, nil, &pageSize)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result.Policies).To(HaveLen(2))
+			Expect(result.Results).To(HaveLen(2))
 			Expect(result.NextPageToken).NotTo(BeNil())
 
 			// Get next page
 			result2, err := policyService.ListPolicies(ctx, nil, nil, result.NextPageToken, &pageSize)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result2.Policies).To(HaveLen(2))
+			Expect(result2.Results).To(HaveLen(2))
 			Expect(result2.NextPageToken).To(BeNil()) // No more pages
 		})
 

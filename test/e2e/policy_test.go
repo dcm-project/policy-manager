@@ -520,8 +520,8 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(resp.JSON200).NotTo(BeNil())
-			Expect(resp.JSON200.Policies).NotTo(BeEmpty())
-			Expect(len(resp.JSON200.Policies)).To(BeNumerically(">=", 5))
+			Expect(resp.JSON200.Results).NotTo(BeEmpty())
+			Expect(len(resp.JSON200.Results)).To(BeNumerically(">=", 5))
 		})
 
 		It("should paginate with max_page_size", func() {
@@ -532,7 +532,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
 			Expect(resp.JSON200).NotTo(BeNil())
-			Expect(len(resp.JSON200.Policies)).To(Equal(2))
+			Expect(len(resp.JSON200.Results)).To(Equal(2))
 		})
 
 		It("should navigate to next page with page_token", func() {
@@ -551,7 +551,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp2, err := apiClient.ListPoliciesWithResponse(ctx, params2)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp2.StatusCode()).To(Equal(http.StatusOK))
-			Expect(resp2.JSON200.Policies).NotTo(BeEmpty())
+			Expect(resp2.JSON200.Results).NotTo(BeEmpty())
 		})
 
 		It("should verify next_page_token presence/absence", func() {
@@ -619,7 +619,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				Expect(*policy.PolicyType).To(Equal(v1alpha1.GLOBAL))
 			}
 		})
@@ -632,7 +632,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				Expect(*policy.PolicyType).To(Equal(v1alpha1.USER))
 			}
 		})
@@ -645,7 +645,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				Expect(policy.Enabled).NotTo(BeNil())
 				Expect(*policy.Enabled).To(BeTrue())
 			}
@@ -659,7 +659,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				Expect(policy.Enabled).NotTo(BeNil())
 				Expect(*policy.Enabled).To(BeFalse())
 			}
@@ -673,7 +673,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				Expect(*policy.PolicyType).To(Equal(v1alpha1.GLOBAL))
 				Expect(*policy.Enabled).To(BeTrue())
 			}
@@ -755,7 +755,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 
 			// Verify ascending order
 			var lastPriority int32
-			for i, policy := range resp.JSON200.Policies {
+			for i, policy := range resp.JSON200.Results {
 				if i > 0 && policy.Priority != nil {
 					Expect(*policy.Priority).To(BeNumerically(">=", lastPriority))
 				}
@@ -776,7 +776,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 
 			// Verify descending order
 			var lastPriority int32 = 1001 // Higher than max
-			for _, policy := range resp.JSON200.Policies {
+			for _, policy := range resp.JSON200.Results {
 				if policy.Priority != nil {
 					Expect(*policy.Priority).To(BeNumerically("<=", lastPriority))
 					lastPriority = *policy.Priority
@@ -795,7 +795,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 
 			// Verify alphabetical order
 			var lastName string
-			for i, policy := range resp.JSON200.Policies {
+			for i, policy := range resp.JSON200.Results {
 				if i > 0 && policy.DisplayName != nil {
 					Expect(strings.ToLower(*policy.DisplayName) >= strings.ToLower(lastName)).To(BeTrue())
 				}
@@ -813,7 +813,7 @@ var _ = Describe("Policy CRUD Operations", func() {
 			resp, err := apiClient.ListPoliciesWithResponse(ctx, params)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode()).To(Equal(http.StatusOK))
-			Expect(resp.JSON200.Policies).NotTo(BeEmpty())
+			Expect(resp.JSON200.Results).NotTo(BeEmpty())
 		})
 
 		It("should reject order_by with unsupported field", func() {
@@ -1534,7 +1534,7 @@ allow if {
 
 			// Find the created policy in the list
 			found := false
-			for _, p := range listResp.JSON200.Policies {
+			for _, p := range listResp.JSON200.Results {
 				if *p.Id == policyID {
 					found = true
 					Expect(p.RegoCode).NotTo(BeNil())

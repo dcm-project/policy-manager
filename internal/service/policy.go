@@ -275,7 +275,7 @@ func (s *PolicyServiceImpl) ListPolicies(ctx context.Context, filter *string, or
 
 	// Build response
 	response := &v1alpha1.PolicyList{
-		Policies: apiPolicies,
+		Results: apiPolicies,
 	}
 
 	if result.NextPageToken != "" {

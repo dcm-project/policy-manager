@@ -485,9 +485,9 @@ components:
 
         Implements AEP-132 List standard method requirements.
       required:
-        - policies
+        - results
       properties:
-        policies:
+        results:
           type: array
           description: List of policy resources matching the request criteria
           items:

@@ -180,8 +180,8 @@ type PolicyList struct {
 	// This token is opaque and should not be parsed by clients.
 	NextPageToken *string `json:"next_page_token,omitempty"`
 
-	// Policies List of policy resources matching the request criteria
-	Policies []Policy `json:"policies"`
+	// Results List of policy resources matching the request criteria
+	Results []Policy `json:"results"`
 }
 
 // PolicyIdPath defines model for PolicyIdPath.

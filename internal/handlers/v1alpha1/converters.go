@@ -48,12 +48,12 @@ func policyV1Alpha1ToServer(p v1alpha1.Policy) server.Policy {
 }
 
 func listResponseV1Alpha1ToServer(r v1alpha1.PolicyList) server.PolicyList {
-	policies := make([]server.Policy, len(r.Policies))
-	for i, p := range r.Policies {
+	policies := make([]server.Policy, len(r.Results))
+	for i, p := range r.Results {
 		policies[i] = policyV1Alpha1ToServer(p)
 	}
 	return server.PolicyList{
 		NextPageToken: r.NextPageToken,
-		Policies:      policies,
+		Results:       policies,
 	}
 }
