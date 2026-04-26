@@ -3,6 +3,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/dcm-project/policy-manager/api/v1alpha1"
 	"github.com/dcm-project/policy-manager/internal/api/server"
@@ -62,9 +63,11 @@ func (h *PolicyHandler) CreatePolicy(ctx context.Context, request server.CreateP
 	}
 
 	log.Info("Policy created", "policy_id", *created.Id)
-	// Convert back to server.Policy
 	return server.CreatePolicy201JSONResponse{
 		Body: policyV1Alpha1ToServer(*created),
+		Headers: server.CreatePolicy201ResponseHeaders{
+			Location: fmt.Sprintf("/api/v1alpha1/policies/%s", *created.Id),
+		},
 	}, nil
 }
 
@@ -107,7 +110,7 @@ func (h *PolicyHandler) ListPolicies(ctx context.Context, request server.ListPol
 		return h.handleListPoliciesError(err, request), nil
 	}
 
-	log.Debug("ListPolicies completed", "count", len(result.Policies))
+	log.Debug("ListPolicies completed", "count", len(result.Results))
 	return server.ListPolicies200JSONResponse(listResponseV1Alpha1ToServer(*result)), nil
 }
 

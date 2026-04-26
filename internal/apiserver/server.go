@@ -14,6 +14,7 @@ import (
 	"github.com/dcm-project/policy-manager/internal/api/server"
 	"github.com/dcm-project/policy-manager/internal/config"
 	"github.com/dcm-project/policy-manager/internal/logging"
+	custommiddleware "github.com/dcm-project/policy-manager/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -43,6 +44,7 @@ func (s *Server) Run(ctx context.Context) error {
 	router.Use(logging.RequestLogger)
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
+	router.Use(custommiddleware.ProblemJSON)
 
 	swagger, err := v1alpha1.GetSwagger()
 	if err != nil {
